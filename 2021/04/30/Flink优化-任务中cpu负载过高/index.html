@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="背景在flink standalone集群中，向集群提交5个flink任务，会遇到cpu负载过高问题。 cpu负载过高，会带来cpu大部分都在进行上下文切换，而不实际进行task执行。所以，cpu负载过高，并不是一个好事。来追踪一下当前遇到的场景。一方面是对cpu上下文切换的一个理论实战，另一方面也是解决当前遇到的问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flink优化:任务中cpu负载过高">
+<meta property="og:url" content="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="背景在flink standalone集群中，向集群提交5个flink任务，会遇到cpu负载过高问题。 cpu负载过高，会带来cpu大部分都在进行上下文切换，而不实际进行task执行。所以，cpu负载过高，并不是一个好事。来追踪一下当前遇到的场景。一方面是对cpu上下文切换的一个理论实战，另一方面也是解决当前遇到的问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users/pc/AppData/Roaming/Typora/typora-user-images/1598521003249.png">
+<meta property="og:image" content="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users/pc/AppData/Roaming/Typora/typora-user-images/1598586467980.png">
+<meta property="og:image" content="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users/pc/AppData/Roaming/Typora/typora-user-images/1598586569081.png">
+<meta property="article:published_time" content="2021-04-30T05:47:21.000Z">
+<meta property="article:modified_time" content="2021-04-30T05:55:47.337Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="flink">
+<meta property="article:tag" content="bigdata">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users/pc/AppData/Roaming/Typora/typora-user-images/1598521003249.png">
+
+<link rel="canonical" href="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Flink优化:任务中cpu负载过高 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Flink优化:任务中cpu负载过高
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-04-30 13:47:21 / 修改时间：13:55:47" itemprop="dateCreated datePublished" datetime="2021-04-30T13:47:21+08:00">2021-04-30</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>在flink standalone集群中，向集群提交5个flink任务，会遇到cpu负载过高问题。</p>
+<p>cpu负载过高，会带来cpu大部分都在进行上下文切换，而不实际进行task执行。所以，cpu负载过高，并不是一个好事。来追踪一下当前遇到的场景。一方面是对cpu上下文切换的一个理论实战，另一方面也是解决当前遇到的问题。</p>
+<a id="more"></a>
+
+
+
+<h3 id="CPU上下文切换实战"><a href="#CPU上下文切换实战" class="headerlink" title="CPU上下文切换实战"></a>CPU上下文切换实战</h3><p>关于cpu上下文切换的理论知识，在网络中也可以找到，此处先不做介绍。</p>
+<p>如果在出现cpu负载过高的时候，我们如何来定位呢？</p>
+<h4 id="查看系统中进程的上下文切换"><a href="#查看系统中进程的上下文切换" class="headerlink" title="查看系统中进程的上下文切换"></a>查看系统中进程的上下文切换</h4><p>vmstat是一个常用的系统性能分析工具，主要用来分析系统系统内存的使用情况，也常用来分析CPU上下文切换和中断的次数。</p>
+<h5 id="flink任务提交前"><a href="#flink任务提交前" class="headerlink" title="flink任务提交前"></a>flink任务提交前</h5><p>在不提交flink任务时，我们先查看系统上下文切换情况。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 每隔5秒打印一次</span></span><br><span class="line">vmstat 5</span><br></pre></td></tr></table></figure>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">procs -----------memory---------- ---swap-- -----io---- --system-- -----cpu-----</span><br><span class="line"> r  b   swpd   free   buff  cache   si   so    bi    bo   <span class="keyword">in</span>   cs us sy id wa st</span><br><span class="line"> 1  0  11152 6118068 548932 6175248    0    0    37    58    2    1  6  2 91  0  0</span><br><span class="line"> 0  0  11152 6118036 548932 6175484    0    0     0    33  923 1706  1  0 99  0  0</span><br><span class="line"> 1  0  11152 6117820 548932 6175648    0    0     0    59  922 1728  1  0 99  0  0</span><br></pre></td></tr></table></figure>
+<p>我们目前关注的只是CPU部分，其他字段可以私下了解。</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cs：context switch</td>
+<td>每秒上下文切换的次数</td>
+</tr>
+<tr>
+<td>in：interrupt</td>
+<td>每秒中断的次数</td>
+</tr>
+<tr>
+<td>us：user time</td>
+<td>用户进程执行时间</td>
+</tr>
+<tr>
+<td>sy：system time</td>
+<td>系统进程执行时间</td>
+</tr>
+<tr>
+<td>r：running or runnable</td>
+<td>就绪队列的长度。也就是正在运行和等待cpu的进程数</td>
+</tr>
+<tr>
+<td>b：blocked</td>
+<td>处于不可中断睡眠状态的进程数</td>
+</tr>
+</tbody></table>
+<p><strong>结论</strong></p>
+<blockquote>
+<p>从控制台打印结果中可以看到，在没有Flink任务提交时，cs值大约在1700左右。即每秒切换1700多次。</p>
+</blockquote>
+<h5 id="flink任务提交后"><a href="#flink任务提交后" class="headerlink" title="flink任务提交后"></a>flink任务提交后</h5><p>现在将flink任务提交，再来查看系统中，cpu的上下文切换情况。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vmstat 5</span><br></pre></td></tr></table></figure>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">procs -----------memory---------- ---swap-- -----io---- --system-- -----cpu-----</span><br><span class="line"> r  b   swpd   free   buff  cache   si   so    bi    bo   <span class="keyword">in</span>   cs us sy id wa st</span><br><span class="line"> 2  0  11152 4166952 551124 6712052    0    0    37    58    0    2  6  2 91  0  0</span><br><span class="line"> 0  0  11152 4169904 551136 6712208    0    0     0    61 4283 14612 15  3 82  0  0</span><br><span class="line"> 0  0  11152 4163520 551144 6712384    0    0     0    46 4269 14721 14  3 83  0  0</span><br><span class="line"> 3  0  11152 4162072 551152 6712568    0    0     0    10 4342 14645 14  3 83  0  0</span><br><span class="line"> 0  0  11152 4157612 551160 6712760    0    0     0    14 4387 14623 15  3 82  0  0</span><br><span class="line"> 0  0  11152 4157124 551168 6712924    0    0     0    14 4095 14557 13  3 84  0  0</span><br></pre></td></tr></table></figure>
+<p><strong>结论</strong></p>
+<blockquote>
+<p>从打印结果中看到，cs值由原来的1700提高到了14000，差不多提高了10倍左右。</p>
+</blockquote>
+<p>此时通过top命令查看cpu平均负载：</p>
+<p><img src="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users\pc\AppData\Roaming\Typora\typora-user-images\1598521003249.png" alt="1598521003249"></p>
+<p>可以看出，cpu load average 达到了4左右。我当前的虚拟机是4核cpu。说明已经完全占用了cpu所有的核。</p>
+<p>为了进一步追查flink内部究竟是什么在占用cpu，下面介绍一个新的工具。</p>
+<h4 id="查看进程内线程的上下文切换"><a href="#查看进程内线程的上下文切换" class="headerlink" title="查看进程内线程的上下文切换"></a>查看进程内线程的上下文切换</h4><p>vmstat 只给出了系统总体的上下文切换情况，要想查看每个进程的详细情况，需要使用pidstat。</p>
+<h5 id="检查进程间上下文切换"><a href="#检查进程间上下文切换" class="headerlink" title="检查进程间上下文切换"></a>检查进程间上下文切换</h5><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pidstat -w 5</span><br></pre></td></tr></table></figure>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">03:13:02 PM       PID   cswch/s nvcswch/s  Command</span><br><span class="line">03:13:07 PM         3      0.40      0.00  migration/0</span><br><span class="line">03:13:07 PM         4      0.60      0.00  ksoftirqd/0</span><br><span class="line">03:13:07 PM         9      0.40      0.00  ksoftirqd/1</span><br><span class="line">03:13:07 PM        11      0.60      0.00  migration/2</span><br><span class="line">03:13:07 PM        17      0.20      0.00  ksoftirqd/3</span><br><span class="line">03:13:07 PM        19      1.00      0.00  events/0</span><br><span class="line">03:13:07 PM        20      1.20      0.00  events/1</span><br><span class="line">03:13:07 PM        21      1.00      0.00  events/2</span><br><span class="line">03:13:07 PM        22      2.99      0.00  events/3</span><br></pre></td></tr></table></figure>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cswch</td>
+<td>表示时间段内，每秒自愿上下文切换的速率。<br>自愿上下文切换是指进程无法获取资源导致的上下文切换。比如说I/O、内存等系统资源不足时，就会发生自愿上下文切换。</td>
+</tr>
+<tr>
+<td>nvcswch</td>
+<td>表示非自愿上下文切换，是指进程由于事件片已到等原因，被系统强制调度，进而发生的上下文切换，比如大量进程在争抢cpu的时候，就容易发生非自愿上下文切换</td>
+</tr>
+</tbody></table>
+<p>细心的你会发现，cswch/s 的总和也没打到14000。是不是检测工具的bug呢？</p>
+<p>其实不是，pidstat - w 用来检测的是进程间的上下文切换。而vmstat检查的是所有的上下文切换。</p>
+<p>我们当前的任务是追踪flink内部线程的上下文切换情况，而不是进程间的上下文切换情况。所以，在pidstat中加入-t参数，即可监控某个进程中线程的情况。</p>
+<h5 id="检查进程中线程上下文切换"><a href="#检查进程中线程上下文切换" class="headerlink" title="检查进程中线程上下文切换"></a>检查进程中线程上下文切换</h5><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># flink TaskManager 进程PID为22149，检测每秒线程的切换情况</span></span><br><span class="line">pidstat -w -t -p 22149 1</span><br></pre></td></tr></table></figure>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br></pre></td><td class="code"><pre><span class="line">04:59:48 PM      TGID       TID   cswch/s nvcswch/s  Command</span><br><span class="line">04:59:49 PM     22149         -      0.00      0.00  java</span><br><span class="line">04:59:49 PM         -     22149      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22153      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22154      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22155      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22156      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22157      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22158      6.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22159      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22160      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22161      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22162      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22163      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22164      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22165      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22177      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22178      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22179      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22180     20.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22195    100.00      2.00  |__java</span><br><span class="line">04:59:49 PM         -     22201      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22202      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22203      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22205     12.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22206     13.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22207      4.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22208      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22209      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22210      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22211      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22212      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22214    100.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22216      9.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22217      9.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22218      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22219      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22220      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22221      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22222      2.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22223      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22224      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22225      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22226      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22227      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22229      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     22230     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -      2325      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17607      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17608      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17611      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17612      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17613      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17615      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17616      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17617      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17618      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17619      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17620      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17621      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17623      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17624      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17625      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17626    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17627    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17628    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17629    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17630    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17631    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17632    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17633    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17634    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17635    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17636    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17637    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17638    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17639    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17640    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17642     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17643     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17644      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17645      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17646      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17647      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17649      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17650      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17651      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17652      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17653      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17654      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17656      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17658      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17659      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17660      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17661      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17662      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17663      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17664      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     17665      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     18028      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     18033      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     19865     27.00     14.00  |__java</span><br><span class="line">04:59:49 PM         -     20468      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20469      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20470      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20472      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20473      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20474      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20475      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20476      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20477      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20478      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20479      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20480      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20481      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20482    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20483      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20484    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20485    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20486    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20487    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20488    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20489    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20490    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20491      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20492    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20493      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20494    195.00      1.00  |__java</span><br><span class="line">04:59:49 PM         -     20495    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20496    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20497      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20498    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20499    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20500     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20501     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20502      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20503      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20504      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20505      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20507      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20508      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20509      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20510      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20511      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20512      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20514      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20515      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20516      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20517      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20518      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20519      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20520      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20521      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20523      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20603      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20604      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20605      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20606      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20607      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20608      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20609      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20610      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20612      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20613      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20614      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20615      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20618      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20619      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20620      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20621      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20622      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20623    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20624    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20625    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20626    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20627      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20628      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20629    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20630      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20631    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20632    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20633      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20634    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20635    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20636    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20637    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20638    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20639    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20640    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20641      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20642    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20643    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20644     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20645     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20646      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20647      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20648      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20649      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20650      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20655      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20656      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20657      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20658      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20659      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20660      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20662      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20671      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20674      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20678      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20681      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20683      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20684      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     20685      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21089      4.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21090      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21092      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21093      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21094      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21095      7.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21096      5.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21097      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21098    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21099      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21100      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21101      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21102    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21103      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21104      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21105      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21106    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21107      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21108    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21109    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21111    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21112    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21113    195.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21114    194.00      4.00  |__java</span><br><span class="line">04:59:49 PM         -     21115    194.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21116     10.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21117      8.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21118      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21119      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21120      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21121      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21122      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21124      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21125      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21126      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21127      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21128      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21129      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21130      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21131      1.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21133      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21134      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21135      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     21136      0.00      0.00  |__java</span><br><span class="line">04:59:49 PM         -     23692      4.00      0.00  |__java</span><br></pre></td></tr></table></figure>
+<p>将cswch/s中打印的结果进行求和，发现它的值到了11000之上。而系统总的上下文切换只有14000。说明flink占用了大量的cpu。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看cpu占用情况</span></span><br><span class="line">pidstat -u -p 22149 5</span><br></pre></td></tr></table></figure>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">04:18:06 PM       PID    %usr %system  %guest    %CPU   CPU  Command</span><br><span class="line">04:18:11 PM     22149   50.80   10.00    0.00   60.80     1  java</span><br><span class="line">04:18:16 PM     22149   57.60   10.80    0.00   68.40     1  java</span><br><span class="line">04:18:21 PM     22149   49.40    9.40    0.00   58.80     1  java</span><br><span class="line">04:18:26 PM     22149   53.20    9.60    0.00   62.80     1  java</span><br><span class="line">04:18:31 PM     22149   50.40   10.00    0.00   60.40     1  java</span><br></pre></td></tr></table></figure>
+<p>将%usr和%system进行相加，可以看出，flink TaskManager占用了60%的cpu。占用cpu高的原因是，flink taskmanager中线程上下文切换太频繁。</p>
+<h4 id="线程堆栈追踪"><a href="#线程堆栈追踪" class="headerlink" title="线程堆栈追踪"></a>线程堆栈追踪</h4><p>为了找到是什么线程在频繁的切换，我们将TaskManager的线程堆栈进行打印：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># jstack 进程id &gt;&gt; 进程id.log</span></span><br><span class="line">jstack 22149 &gt;&gt; 22149.log</span><br></pre></td></tr></table></figure>
+<p>然后打开线程堆栈文件，会发现，文件里面的线程id都是16进制的，而我们通过pidstat看到的线程id是10进制的。通过以下命令，进行互相转换：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># printf &quot;%X\n&quot; 线程id</span></span><br><span class="line">&gt; <span class="built_in">printf</span> <span class="string">&quot;%X\n&quot;</span> 20623</span><br><span class="line">&gt; 508F</span><br></pre></td></tr></table></figure>
+<p>在刚刚的线程堆栈文件中查找：0x508F。找到如下结果：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&quot;OutputFlusher for Source: Stream-Controller-hd_smart8hd_smart8 -&gt; Timestamps/Watermarks&quot; #187 daemon prio=5 os_prio=0 tid=0x00007f340000d000 nid=0x508f sleeping[0x00007f33d4024000]</span><br><span class="line">   java.lang.Thread.State: TIMED_WAITING (sleeping)</span><br><span class="line">	at java.lang.Thread.sleep(Native Method)</span><br><span class="line">	at org.apache.flink.runtime.io.network.api.writer.RecordWriter$OutputFlusher.run(RecordWriter.java:<span class="number">308</span>)</span><br></pre></td></tr></table></figure>
+<p>依次类推，通过随机抽查上下文切换比较高的线程ID，发现大部分都是flink在进行writer。</p>
+<h4 id="Flink任务优化"><a href="#Flink任务优化" class="headerlink" title="Flink任务优化"></a>Flink任务优化</h4><p>Flink任务优化，需要对Flink相当熟悉。通过上面的线程堆栈，我们可以看到，是由于flink进行writer导致的cpu负载过高。而我们的flink流，使用了大量的Collector.collect()函数。该函数的作用是，将上游的数据发往下游进行处理。Flink在全局环境变量中提供了将上游数据刷写到下游的一个频率设置。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">streamExecutionEnvironment.setBufferTimeout(maxBufferTimeout);</span><br></pre></td></tr></table></figure>
+<p>该参数的作用是，提高刷写速度，从而提高flink的实时性。</p>
+<p>为了提高flink的实时性，我们将该值设置的是5ms。而flink默认的值是100ms。</p>
+<p>正是由于它太过频繁，且Collector.collect()过多，才导致了flink任务占用了大量的cpu。</p>
+<p>因此，最终解决flink占用过高cpu负载的方式就是，增大BufferTimeout时间，调整flink任务，减少Collector.collect()数量。</p>
+<h4 id="Flink任务优化后，CPU负载情况"><a href="#Flink任务优化后，CPU负载情况" class="headerlink" title="Flink任务优化后，CPU负载情况"></a>Flink任务优化后，CPU负载情况</h4><p>优化了flink任务之后，再将原来的flink任务提交到flink集群。此时通过top查看cpu负载情况</p>
+<p><img src="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users\pc\AppData\Roaming\Typora\typora-user-images\1598586467980.png" alt="1598586467980"></p>
+<p>可以看到，cup负载明显降低，原来达到了4之上，现在在1左右。</p>
+<p>通过visualVM可以监控到，cpu使用极低。</p>
+<p><img src="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/Users\pc\AppData\Roaming\Typora\typora-user-images\1598586569081.png" alt="1598586569081"></p>
+<p>再查看cpu每秒上下文切换次数。</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&gt; vmstat 1</span><br><span class="line">procs -----------memory---------- ---swap-- -----io---- --system-- -----cpu-----</span><br><span class="line"> r  b   swpd   free   buff  cache   si   so    bi    bo   <span class="keyword">in</span>   cs us sy id wa st</span><br><span class="line"> 2  0  11152 3317480 650676 7778684    0    0    36    57    1    1  6  2 91  0  0</span><br><span class="line"> 0  0  11152 3317464 650680 7778684    0    0     0    24 1844 2904  7  1 92  0  0</span><br><span class="line"> 0  0  11152 3317464 650680 7778696    0    0     0   116 1437 2547  4  1 94  1  0</span><br><span class="line"> 0  0  11152 3317472 650680 7778708    0    0     0     0 1594 2694  3  1 96  0  0</span><br><span class="line"> 0  0  11152 3317472 650680 7778728    0    0     0     0 1628 2801  5  1 94  0  0</span><br></pre></td></tr></table></figure>
+<p>单独查询taskmanager进程，线程上下文切换总数为：1000以内。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>通过前面的理论及实战，那么肯定会有一个疑问：系统内，每秒多少次上下文切换才算正常？其实这个没有一个固定值，它的数值取决于系统cpu性能。如果cpu性能很高，每秒处理的任务将会很多。只要不超过对应的瓶颈都可以。最主要的是load average。它是一个很有价值的参考值。经验值是cpu核数*0.7。在它之下则任务基本正常。超过后则有一定的风险。也可以通过以下几点来参考。</p>
+<p>1、自愿上下文切换（cswch/s）变多了，说明进程都在等待资源，有可能发生I/O问题<br>2、非自愿上下文切换（nvcswch/s）变多了，说明进程都在被强制调度，也就是都在争抢cpu，说明cpu的确成为瓶颈<br>3、中断次数变多，说明cpu被中断程序占用，还需要通过查看/proc/interrupts文件来分析具体的中断类型</p>
+<p>参考：</p>
+<p> <a target="_blank" rel="noopener" href="https://www.jianshu.com/p/68ff81e2c084">https://www.jianshu.com/p/68ff81e2c084</a> </p>
+<p> <a target="_blank" rel="noopener" href="https://www.jianshu.com/p/2abeb1bee1a6">https://www.jianshu.com/p/2abeb1bee1a6</a> </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/flink/" rel="tag"># flink</a>
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/" rel="prev" title="Flink的Window源码解析">
+      <i class="fa fa-chevron-left"></i> Flink的Window源码解析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/" rel="next" title="Flink On K8s 启动TaskManager时设置cpu limit">
+      Flink On K8s 启动TaskManager时设置cpu limit <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CPU%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2%E5%AE%9E%E6%88%98"><span class="nav-number">2.</span> <span class="nav-text">CPU上下文切换实战</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E7%B3%BB%E7%BB%9F%E4%B8%AD%E8%BF%9B%E7%A8%8B%E7%9A%84%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2"><span class="nav-number">2.1.</span> <span class="nav-text">查看系统中进程的上下文切换</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#flink%E4%BB%BB%E5%8A%A1%E6%8F%90%E4%BA%A4%E5%89%8D"><span class="nav-number">2.1.1.</span> <span class="nav-text">flink任务提交前</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#flink%E4%BB%BB%E5%8A%A1%E6%8F%90%E4%BA%A4%E5%90%8E"><span class="nav-number">2.1.2.</span> <span class="nav-text">flink任务提交后</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E8%BF%9B%E7%A8%8B%E5%86%85%E7%BA%BF%E7%A8%8B%E7%9A%84%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2"><span class="nav-number">2.2.</span> <span class="nav-text">查看进程内线程的上下文切换</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%A3%80%E6%9F%A5%E8%BF%9B%E7%A8%8B%E9%97%B4%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2"><span class="nav-number">2.2.1.</span> <span class="nav-text">检查进程间上下文切换</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%A3%80%E6%9F%A5%E8%BF%9B%E7%A8%8B%E4%B8%AD%E7%BA%BF%E7%A8%8B%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%87%E6%8D%A2"><span class="nav-number">2.2.2.</span> <span class="nav-text">检查进程中线程上下文切换</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E5%A0%86%E6%A0%88%E8%BF%BD%E8%B8%AA"><span class="nav-number">2.3.</span> <span class="nav-text">线程堆栈追踪</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Flink%E4%BB%BB%E5%8A%A1%E4%BC%98%E5%8C%96"><span class="nav-number">2.4.</span> <span class="nav-text">Flink任务优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Flink%E4%BB%BB%E5%8A%A1%E4%BC%98%E5%8C%96%E5%90%8E%EF%BC%8CCPU%E8%B4%9F%E8%BD%BD%E6%83%85%E5%86%B5"><span class="nav-number">2.5.</span> <span class="nav-text">Flink任务优化后，CPU负载情况</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Apache Flink 社区很荣幸地宣布 Flink 1.12.0 版本正式发布！近 300 位贡献者参与了 Flink 1.12.0 的开发，提交了超过 1000 多个修复或优化。这些修改极大地提高了 Flink 的可用性，并且简化（且统一）了 Flink 的整个 API 栈。其中一些比较重要的修改包括：  在 DataStream API 上添加了高效的批执行模式的支持。这是批处理和流处理实">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flink之二:1.12.0版本新特性">
+<meta property="og:url" content="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="Apache Flink 社区很荣幸地宣布 Flink 1.12.0 版本正式发布！近 300 位贡献者参与了 Flink 1.12.0 的开发，提交了超过 1000 多个修复或优化。这些修改极大地提高了 Flink 的可用性，并且简化（且统一）了 Flink 的整个 API 栈。其中一些比较重要的修改包括：  在 DataStream API 上添加了高效的批执行模式的支持。这是批处理和流处理实">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20210220141307.jpg">
+<meta property="og:image" content="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20210220141704.png">
+<meta property="article:published_time" content="2021-02-02T02:28:06.000Z">
+<meta property="article:modified_time" content="2021-02-22T03:37:44.591Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="flink">
+<meta property="article:tag" content="bigdata">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20210220141307.jpg">
+
+<link rel="canonical" href="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Flink之二:1.12.0版本新特性 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Flink之二:1.12.0版本新特性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-02-02 10:28:06" itemprop="dateCreated datePublished" datetime="2021-02-02T10:28:06+08:00">2021-02-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-02-22 11:37:44" itemprop="dateModified" datetime="2021-02-22T11:37:44+08:00">2021-02-22</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Apache Flink 社区很荣幸地宣布 Flink 1.12.0 版本正式发布！近 300 位贡献者参与了 Flink 1.12.0 的开发，提交了超过 1000 多个修复或优化。这些修改极大地提高了 Flink 的可用性，并且简化（且统一）了 Flink 的整个 API 栈。其中一些比较重要的修改包括：</p>
+<ul>
+<li>在 DataStream API 上添加了高效的批执行模式的支持。这是批处理和流处理实现真正统一的运行时的一个重要里程碑。</li>
+<li>实现了基于Kubernetes的高可用性（HA）方案，作为生产环境中，ZooKeeper方案之外的另外一种选择。</li>
+<li>扩展了 Kafka SQL connector，使其可以在 upsert 模式下工作，并且支持在 SQL DDL 中处理 connector 的 metadata。现在，时态表 Join 可以完全用 SQL 来表示，不再依赖于 Table API 了。</li>
+<li>PyFlink 中添加了对于 DataStream API 的支持，将 PyFlink 扩展到了更复杂的场景，比如需要对状态或者定时器 timer 进行细粒度控制的场景。除此之外，现在原生支持将 PyFlink 作业部署到 Kubernetes上。</li>
+</ul>
+<a id="more"></a>
+
+<p>本文描述了所有主要的新功能、优化、以及需要特别关注的改动。</p>
+<p>Flink 1.12.0 的二进制发布包和源代码可以通过 Flink 官网的下载页面获得，详情可以参阅 Flink 1.12.0 的官方文档。我们希望您下载试用这一版本后，可以通过 Flink 邮件列表和 JIRA 网站和我们分享您的反馈意见。</p>
+<blockquote>
+<p><strong>Flink 1.12 官方文档：</strong><br><a target="_blank" rel="noopener" href="https://ci.apache.org/projects/flink/flink-docs-release-1.12/">https://ci.apache.org/projects/flink/flink-docs-release-1.12/</a></p>
+</blockquote>
+<h3 id="新的功能和优化"><a href="#新的功能和优化" class="headerlink" title="新的功能和优化"></a>新的功能和优化</h3><h4 id="DataStream-API-支持批执行模式"><a href="#DataStream-API-支持批执行模式" class="headerlink" title="DataStream API 支持批执行模式"></a>DataStream API 支持批执行模式</h4><p>Flink 的核心 API 最初是针对特定的场景设计的，尽管 Table API / SQL 针对流处理和批处理已经实现了统一的 API，但当用户使用较底层的 API 时，仍然需要在批处理（DataSet API）和流处理（DataStream API）这两种不同的 API 之间进行选择。鉴于批处理是流处理的一种特例，将这两种 API 合并成统一的 API，有一些非常明显的好处，比如：</p>
+<ul>
+<li><strong>可复用性</strong>：作业可以在流和批这两种执行模式之间自由地切换，而无需重写任何代码。因此，用户可以复用同一个作业，来处理实时数据和历史数据。</li>
+<li><strong>维护简单</strong>：统一的 API 意味着流和批可以共用同一组 connector，维护同一套代码，并能够轻松地实现流批混合执行，例如 backfilling 之类的场景。</li>
+</ul>
+<p>考虑到这些优点，社区已朝着流批统一的 DataStream API 迈出了第一步：支持高效的批处理（FLIP-134）。从长远来看，这意味着 DataSet API 将被弃用（FLIP-131），其功能将被包含在 DataStream API 和 Table API / SQL 中。</p>
+<h4 id="在有限流上进行批处理"><a href="#在有限流上进行批处理" class="headerlink" title="在有限流上进行批处理"></a>在有限流上进行批处理</h4><p>DataStream API既可以处理无界流，也可以处理有界流，在1.12.0版本之前，DataStream API处理无界流时，执行的逻辑也是按流逻辑执行，因为它并不知道作业的输入是有界还是无界。</p>
+<p>为了优化在有限流情况下运行时的执行性能，DataStream API提供了新的 BATCH 执行模式，对于聚合操作，全部在内存中进行，且使用 sort-based shuffle（FLIP-140）和优化过的调度策略（请参见 Pipelined Region Scheduling 了解更多详细信息）。因此，DataStream API 中的 BATCH 执行模式已经非常接近 Flink 1.12 中 DataSet API 的性能。有关性能的更多详细信息，请查看 FLIP-140。</p>
+<p>下面是DataStream API处理批任务和DataSet API处理批任务性能对比</p>
+<p><img src="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20210220141307.jpg"></p>
+<p>在 Flink 1.12 中，默认执行模式为 STREAMING，要将作业配置为以 BATCH 模式运行，可以在提交作业的时候，设置参数 execution.runtime-mode：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ bin/flink run -Dexecution.runtime-mode=BATCH examples/streaming/WordCount.jar</span><br></pre></td></tr></table></figure>
+<p>或者通过编程的方式：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();</span><br><span class="line">env.setRuntimeMode(RuntimeMode.BATCH);</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>注意</strong>：尽管 DataSet API 尚未被弃用，但我们建议用户优先使用具有 BATCH 执行模式的 DataStream API 来开发新的批作业，并考虑迁移现有的 DataSet 作业。</p>
+</blockquote>
+<h4 id="新的Data-Sink-API"><a href="#新的Data-Sink-API" class="headerlink" title="新的Data Sink API"></a>新的Data Sink API</h4><p>之前发布的 Flink 版本中，已经支持了 source connector 工作在流批两种模式下，因此在 Flink 1.12 中，社区着重实现了统一的 Data Sink API。新的抽象引入了 write/commit 协议和一个更加模块化的接口。Sink 的实现者只需要定义 what 和 how：SinkWriter，用于写数据，并输出需要 commit 的内容（例如，committables）；Committer 和 GlobalCommitter，封装了如何处理 committables。框架会负责 when 和 where：即在什么时间，以及在哪些机器或进程中 commit。</p>
+<p><img src="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20210220141704.png"></p>
+<p>这种模块化的抽象允许为 BATCH 和 STREAMING 两种执行模式，实现不同的运行时策略，以达到仅使用一种 sink 实现，也可以使两种模式都可以高效执行。Flink 1.12 中，提供了统一的 FileSink connector，以替换现有的 StreamingFileSink connector。其它的 connector 也将逐步迁移到新的接口。</p>
+<h4 id="基于-Kubernetes-的高可用-HA-方案"><a href="#基于-Kubernetes-的高可用-HA-方案" class="headerlink" title="基于 Kubernetes 的高可用 (HA) 方案"></a>基于 Kubernetes 的高可用 (HA) 方案</h4><p>Flink 可以利用 Kubernetes 提供的内置功能来实现 JobManager 的 failover，而不用依赖 ZooKeeper。为了实现不依赖于 ZooKeeper 的高可用方案，社区在 Flink 1.12（FLIP-144）中实现了基于 Kubernetes 的高可用方案。该方案与 ZooKeeper 方案基于相同的接口，并使用 Kubernetes 的 ConfigMap 对象来处理从 JobManager 的故障中恢复所需的所有元数据。关于如何配置高可用的 standalone 或原生 Kubernetes 集群的更多详细信息和示例，请查阅文档。</p>
+<blockquote>
+<p><strong>注意：</strong>需要注意的是，这并不意味着 ZooKeeper 将被删除，这只是为 Kubernetes 上的 Flink 用户提供了另外一种选择。</p>
+</blockquote>
+<p>关于flink提交到k8s，后面再详细介绍。</p>
+<h4 id="其他功能改进"><a href="#其他功能改进" class="headerlink" title="其他功能改进"></a>其他功能改进</h4><ol>
+<li><p>将现有的 connector 迁移到新的 Data Source API</p>
+<p>在之前的版本中，Flink 引入了新的 Data Source API，以允许实现同时适用于有限数据（批）作业和无限数据（流）作业使用的 connector 。在 Flink 1.12 中，社区从 FileSystem connector出发，开始将现有的 source connector 移植到新的接口。</p>
+<blockquote>
+<p><strong>注意:</strong> 新的 source 实现，是完全不同的实现，与旧版本的实现不兼容。</p>
+</blockquote>
+</li>
+</ol>
+<ol start="2">
+<li><p>Pipelined Region 调度</p>
+<p>在之前的版本中，Flink 对于批作业和流作业有两套独立的调度策略。Flink 1.12 版本中，引入了统一的调度策略， 该策略通过识别 blocking 数据传输边，将 ExecutionGraph 分解为多个 pipelined region。这样一来，对于一个 pipelined region 来说，仅当有数据时才调度它，并且仅在所有其所需的资源都被满足时才部署它；同时也可以支持独立地重启失败的 region。对于批作业来说，新策略可显著地提高资源利用率，并消除死锁。</p>
+</li>
+<li><p>支持 Sort-Merge Shuffle</p>
+<p>为了提高大规模批作业的稳定性、性能和资源利用率，社区引入了 sort-merge shuffle，以替代 Flink 现有的实现。这种方案可以显著减少 shuffle 的时间，并使用较少的文件句柄和文件写缓存（这对于大规模批作业的执行非常重要）。在后续版本中，Flink 会进一步优化相关性能。</p>
+<blockquote>
+<p><strong>注意：</strong>该功能是实验性的，在 Flink 1.12 中默认情况下不启用。要启用 sort-merge shuffle，需要在 TaskManager 的网络配置中设置合理的最小并行度。</p>
+</blockquote>
+</li>
+<li><p>Flink WebUI 的改进</p>
+<p>作为对上一个版本中，Flink WebUI 一系列改进的延续，Flink 1.12 在 WebUI 上暴露了 JobManager 内存相关的指标和配置参数。对于 TaskManager 的指标页面也进行了更新，为 Managed Memory、Network Memory 和 Metaspace 添加了新的指标，以反映自 Flink 1.10开始引入的 TaskManager 内存模型的更改。</p>
+</li>
+</ol>
+<blockquote>
+<p><strong>原文链接：</strong></p>
+<p><a target="_blank" rel="noopener" href="https://flink.apache.org/news/2020/12/10/release-1.12.0.html">https://flink.apache.org/news/2020/12/10/release-1.12.0.html</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/flink/" rel="tag"># flink</a>
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E4%B9%9D-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E8%B0%83%E4%BC%98/" rel="prev" title="Spark之九:Spark数据倾斜调优">
+      <i class="fa fa-chevron-left"></i> Spark之九:Spark数据倾斜调优
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/" rel="next" title="《Nginx系列》1.Nginx简介">
+      《Nginx系列》1.Nginx简介 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%B0%E7%9A%84%E5%8A%9F%E8%83%BD%E5%92%8C%E4%BC%98%E5%8C%96"><span class="nav-number">1.</span> <span class="nav-text">新的功能和优化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DataStream-API-%E6%94%AF%E6%8C%81%E6%89%B9%E6%89%A7%E8%A1%8C%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.1.</span> <span class="nav-text">DataStream API 支持批执行模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9C%A8%E6%9C%89%E9%99%90%E6%B5%81%E4%B8%8A%E8%BF%9B%E8%A1%8C%E6%89%B9%E5%A4%84%E7%90%86"><span class="nav-number">1.2.</span> <span class="nav-text">在有限流上进行批处理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%96%B0%E7%9A%84Data-Sink-API"><span class="nav-number">1.3.</span> <span class="nav-text">新的Data Sink API</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E-Kubernetes-%E7%9A%84%E9%AB%98%E5%8F%AF%E7%94%A8-HA-%E6%96%B9%E6%A1%88"><span class="nav-number">1.4.</span> <span class="nav-text">基于 Kubernetes 的高可用 (HA) 方案</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%8A%9F%E8%83%BD%E6%94%B9%E8%BF%9B"><span class="nav-number">1.5.</span> <span class="nav-text">其他功能改进</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这是一个重点知识，如果你已经有了一定的基础知识，请务必细看本节。这将对你排查问题以及追踪代码执行进度时，起到很大的作用。 Spark环境监控在大部分时间里，都需要监控spark应用的执行过程以排查出现的问题。下面是spark任务运行的一个图，从图中入手，可以得出一些监控方式。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark之六:Spark监控和调试">
+<meta property="og:url" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="这是一个重点知识，如果你已经有了一定的基础知识，请务必细看本节。这将对你排查问题以及追踪代码执行进度时，起到很大的作用。 Spark环境监控在大部分时间里，都需要监控spark应用的执行过程以排查出现的问题。下面是spark任务运行的一个图，从图中入手，可以得出一些监控方式。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087620(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087794(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087981(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088034(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088174.jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088244(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088308(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088371(1).jpg">
+<meta property="article:published_time" content="2021-01-08T06:32:23.000Z">
+<meta property="article:modified_time" content="2021-01-08T06:57:46.796Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="spark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087620(1).jpg">
+
+<link rel="canonical" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Spark之六:Spark监控和调试 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Spark之六:Spark监控和调试
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-08 14:32:23 / 修改时间：14:57:46" itemprop="dateCreated datePublished" datetime="2021-01-08T14:32:23+08:00">2021-01-08</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>这是一个重点知识，如果你已经有了一定的基础知识，请务必细看本节。这将对你排查问题以及追踪代码执行进度时，起到很大的作用。</p>
+<h3 id="Spark环境监控"><a href="#Spark环境监控" class="headerlink" title="Spark环境监控"></a>Spark环境监控</h3><p>在大部分时间里，都需要监控spark应用的执行过程以排查出现的问题。下面是spark任务运行的一个图，从图中入手，可以得出一些监控方式。</p>
+<a id="more"></a>
+
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087620(1).jpg"></p>
+<h4 id="Spark-Applications-and-Jobs"><a href="#Spark-Applications-and-Jobs" class="headerlink" title="Spark Applications and Jobs"></a>Spark Applications and Jobs</h4><p>如果你想更好地了解应用程序如何在集群上执行，那么你第一个要看的就是SparkUI、Spark logs。这里有spark应用执行的详细信息，如果你还不会查看SparkUI和SparkLogs，别担心，下面我会详细来介绍。</p>
+<h4 id="JVM"><a href="#JVM" class="headerlink" title="JVM"></a>JVM</h4><p>spark中的executor process都运行在单个jvm中，因此，在了解了整体SparkUI后，可以监控单个JVM来查看某个executor的执行过程。如果你了解jvm内部结构，你可以使用用于追踪堆栈的jistack工具、用于创建堆转储的jmap等等工具来辅助你追踪jvm运行信息。</p>
+<h4 id="OS"><a href="#OS" class="headerlink" title="OS"></a>OS</h4><p>因为jvm是运行在操作系统上的，你可以监控操作系统的资源情况，来了解一些信息。比如某个executor操作比较缓慢时，你可以监控这个节点的cpu、io等信息，了解是否有充足的资源在使用。</p>
+<h4 id="cluster"><a href="#cluster" class="headerlink" title="cluster"></a>cluster</h4><p>集群监控也是很重要的，比如常用的Yarn集群。在刚做大数据时，遇到一个问题：Solr查询非常缓慢、且每天凌晨不定期的会出现服务异常情况。因为Solr服务本身没有大量的作业，但是还是经常出现异常，由于不了解整体概念，所以很难排查原因，后来才晓得，Solr服务异常是由于其他大作业占用了所有的cpu和io。</p>
+<p>对于spark的监控，大致就这几个点。我们已经知道了我们需要从这四个方面来监控spark的任务，那么，我们在监控时，需要关注哪些点呢？其实大致有两点：</p>
+<ol>
+<li><p>运行程序的进程（CPU使用率、内存使用率等）</p>
+<blockquote>
+<p>监控spark任务的进程，肯定是来监控Driver进程，因为Driver是整个spark应用的核心，所有的状态都由Driver进程来维护</p>
+</blockquote>
+</li>
+<li><p>运行的任务（job和task）</p>
+</li>
+</ol>
+<p>下面详细的介绍一下如何来监控它们。</p>
+<h3 id="Spark-UI"><a href="#Spark-UI" class="headerlink" title="Spark UI"></a>Spark UI</h3><p>Spark UI是最直观的监控方式，也是最常用的。下面是spark ui提供的几个选项页面。</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087794(1).jpg"></p>
+<ul>
+<li><p>Jobs</p>
+<blockquote>
+<p>spark应用的所有jobs，一个action算子为一个job，job之间的执行是随机的</p>
+</blockquote>
+</li>
+<li><p>Stages</p>
+<blockquote>
+<p>每个job对应的stages</p>
+</blockquote>
+</li>
+<li><p>Storage</p>
+<blockquote>
+<p>当前spark应用的数据存储信息</p>
+</blockquote>
+</li>
+<li><p>Environment</p>
+<blockquote>
+<p>当前spark应用启动时的配置信息</p>
+</blockquote>
+</li>
+<li><p>Executors</p>
+<blockquote>
+<p>每个executor的详细执行信息</p>
+</blockquote>
+</li>
+</ul>
+<p>使用下面的代码来看下监控信息</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">sparkSession.read.option(<span class="string">&quot;header&quot;</span>, <span class="string">&quot;true&quot;</span>)</span><br><span class="line">	.csv(<span class="string">&quot;/xx.csv&quot;</span>)</span><br><span class="line">	.repartition(<span class="number">2</span>)</span><br><span class="line">	.selectExpr(<span class="string">&quot;instr(Description, &#x27;GLASS&#x27;) &gt;= 1 as is_glass&quot;</span>)</span><br><span class="line">	.groupBy(<span class="string">&quot;is_glass&quot;</span>)</span><br><span class="line">	.count()</span><br><span class="line">	.collect()</span><br></pre></td></tr></table></figure>
+<p>这个代码使用了SQL查询，我们可以到SQL页下来查看它的具体运行信息，如下图：</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610087981(1).jpg"></p>
+<p>第一个看到的是一个整体信息：</p>
+<p>Submitted Time: 2017/04/08 16:24:41</p>
+<p>Duration: 2 s</p>
+<p>Succeeded Jobs: 2</p>
+<p>它描述了：任务提交的时间、任务当前持续时间、成功的job数。</p>
+<p>图中每个蓝色框代表一个阶段，我们对每个阶段进行分析：</p>
+<h4 id="读csv文件并重分区"><a href="#读csv文件并重分区" class="headerlink" title="读csv文件并重分区"></a>读csv文件并重分区</h4><p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088034(1).jpg"></p>
+<p>上边WholeStateCodegen的蓝色框表示对csv文件的一个完整扫描，扫描结果得出以下信息：</p>
+<ul>
+<li>一共花费4.7秒（最小422ms，中等614ms，最大626ms）</li>
+<li>csv文件一共541909行</li>
+<li>扫描一共花费0ms</li>
+</ul>
+<p>下面的Exchange框是我们强制分区(reparation(2))的结果，即分区间数据交换的过程。图中给我们的信息是：</p>
+<ul>
+<li>交换数据一共23.8M</li>
+</ul>
+<h4 id="取数据并进行聚合"><a href="#取数据并进行聚合" class="headerlink" title="取数据并进行聚合"></a>取数据并进行聚合</h4><p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088174.jpg"></p>
+<p>这个阶段对应的代码是：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">.selectExpr(<span class="string">&quot;instr(Description,&#x27;GLASS&#x27;)&gt;=1asis_glass&quot;</span>)</span><br><span class="line">.groupBy(<span class="string">&quot;is_glass&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>从该阶段，我们可以看出，它的操作流程是：</p>
+<p>原始数据集 =&gt; 选取符合条件的数据集 =&gt;  分区内进行聚合 =&gt; shuffer</p>
+<p>通过这个信息，我们可以发现，spark-sql的groupBy和spark-core的groupBy是不同的。spark-core中的groupBy是直接进行shuffer的，而spark-sql中的groupBy显然是做了优化，先在分区内进行聚合，再进行shuffer，其中的聚合方式是hash聚合。</p>
+<h4 id="最后阶段：统计阶段"><a href="#最后阶段：统计阶段" class="headerlink" title="最后阶段：统计阶段"></a>最后阶段：统计阶段</h4><p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088244(1).jpg"></p>
+<p>最后这个阶段，是.count()函数的执行阶段。因为我们对is_glass做了分组，所以，这个count是统计每组的一个count。从DAG可以看到，最后输出3行，即表示有三种类型的is_glass。</p>
+<h4 id="spark-jobs"><a href="#spark-jobs" class="headerlink" title="spark jobs"></a>spark jobs</h4><p>了解了该程序的执行过程，我们再来一起看下整个应用的整体过程。</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088308(1).jpg"></p>
+<p>我们从Jobs选项可以看到，一共有3个stage，与我们从DAG中看到的一致。每个stage的持续时间、提交时间，每个job一共运行多少个task等等。每个阶段的task是不同的，第一个阶段read csv使用了8个分区，该方式和spark读任务有很大的关系，它会将一个文件根据行数和spark运行环境进行均分，让每个partition可以均匀的来读取，最终的计算结果是8，第二个stage，因为我们强制设置了分区数量，因此它具有2个分区，第三个阶段一共有200的task，因为默认的shuffer分区是200。</p>
+<h4 id="spark-stages"><a href="#spark-stages" class="headerlink" title="spark stages"></a>spark stages</h4><p><img src="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/1610088371(1).jpg"></p>
+<p>单击第一个stage，可以看到该stage的详细执行信息。顶部的Summary Metrics是整个stage的一个汇总，在看该图时，一般都看这部分值的分布情况。例如Duration，如果min和max差距很大，说明有一部分分区出现了数据倾斜的情况。此图中分布是比较均匀的。在该图的最下边Tasks中，是每个task的一个执行信息，如果数据出现了倾斜，可以从task中看到是哪部分数据。</p>
+<p>上面是spark ui中比较重要的几个选项，其他几个选项主要描述了spark应用环境的一些信息。</p>
+<h3 id="Spark-UI-History-Server"><a href="#Spark-UI-History-Server" class="headerlink" title="Spark UI History Server"></a>Spark UI History Server</h3><p>Spark UI只能在spark应用执行期间被看到，而如果程序出现意外，崩溃后，Spark UI是没有办法立即知道崩溃原因的。我们有两种方式来查看崩溃情况：</p>
+<ul>
+<li>读Spark Logs</li>
+<li>通过Spark UI History Server</li>
+</ul>
+<p>Spark Logs一般用于解读程序中出现错误的某一行，用于修正代码上面的问题，而一些资源问题等情况，要查看Spark UI History Server。查看Spark UI History Server，需要提前配置保存事件日志。配置参考文章：<a target="_blank" rel="noopener" href="http://spark.apache.org/docs/latest/monitoring.html">http://spark.apache.org/docs/latest/monitoring.html</a></p>
+<ul>
+<li><p>启用eventlog</p>
+<p>spark.eventLog.enabled = true</p>
+</li>
+<li><p>配置eventlog存放目录</p>
+<p>spark.eventLog.dir hdfs://namenode/shared/spark-logs</p>
+</li>
+</ul>
+<p>这两个参数在：spark-defaults.conf中配置。</p>
+<h3 id="spark问题汇总及处理方式"><a href="#spark问题汇总及处理方式" class="headerlink" title="spark问题汇总及处理方式"></a>spark问题汇总及处理方式</h3><p>上面是spark任务监控的一种方式，某些时候可能由于spark过于缓慢，需要去查看具体的原因（数据倾斜可能是原因之一，但并非都是由它造成），下面具体介绍一下来排查spark故障缘由的一些方式及解决方案。</p>
+<h4 id="spark-job-启动相关"><a href="#spark-job-启动相关" class="headerlink" title="spark job 启动相关"></a>spark job 启动相关</h4><p>在某些时候，spark任务提交后，job其实并未启动成功。这种情况大部分出现在新搭建集群中。有下面几种失败场景</p>
+<ul>
+<li>spark job启动失败</li>
+<li>除了driver process之外，SparkUI不显示集群上任何节点信息</li>
+<li>SparkUI报出了错误</li>
+</ul>
+<p>解决方案：</p>
+<p>当集群或应用程序需求资源配置不够时，通常会出现spark job启动失败。对应的解决方案就是扩大集群资源。</p>
+<p>spark是一个分布式计算框架，它的配置也是一个分布式配置。在配置spark时，可能由于一些错误的配置导致spark的dirver节点不能正常和execute节点通信，从而会出现在SparkUI上只能看到driver process而看不到其他节点信息。解决方式就是来检查spark集群中的节点是否正常通信，如果不正常，重新配置ip地址和端口。</p>
+<p>另一个原因是，运行spark应用需要的资源超过了集群的资源。即提交spark时，设置的资源大于集群总资源，这样driver端就会一直等待资源来启动executor。</p>
+<p>在实际生产环境中，这些情况一般不会发生，因为实际生产的资源远大于某个应用所需要的资源。</p>
+<h4 id="执行前发生的错误"><a href="#执行前发生的错误" class="headerlink" title="执行前发生的错误"></a>执行前发生的错误</h4><p>spark应用程序执行过程中，出现错误。例如下面几种场景：</p>
+<ul>
+<li>某个job执行成功，在执行下一个job时失败</li>
+<li>昨天提交的任务，运行到今天运行失败了</li>
+<li>历史运行正常，突然某天不正常</li>
+</ul>
+<p>对于第一个问题，可以根据job信息，查看错误发生在哪儿，通过对比数据和代码确认问题所在。对于第二个问题，参考的范围比较广，比如确定数据量大小、查看集群资源使用情况，是否由于资源不够导致任务运行缓慢等等。第三个问题，最根本的原因可能是数据的格式发生了变化。</p>
+<h4 id="慢任务"><a href="#慢任务" class="headerlink" title="慢任务"></a>慢任务</h4><p>慢任务是spark优化的一个比较常见的问题。出现慢任务有两种情况，一是数据倾斜，二是某个节点资源不够。</p>
+<p>出现慢任务的表现有：</p>
+<ul>
+<li>spark的某个阶段一直在执行，期中99%的task已经完成，只有个别几个task还在执行中</li>
+<li>重复执行后发现这些慢任务是在操作同一个数据集</li>
+<li>扩大给spark应用的资源后，运行效果并不会明显提升</li>
+</ul>
+<p>对于慢任务，一定要明确它慢的原因，再根据对应的原因来解决。不过大部分慢的原因是数据并未均分给所有task。如何来确定是否发生了数据倾斜呢？可以通过spark ui来查看某个task的详细信息，查看是否有某个task操作的数据远大于其他task操作的数据。面对这些情况，有下面几种解决方式：</p>
+<ul>
+<li><p>增加分区数量，使每个分区处理的数据降低（并不能解决数据倾斜问题）</p>
+</li>
+<li><p>尝试通过追加后缀重新分区（解决数据倾斜的方式之一）</p>
+<p>数据倾斜常发生在groupByKey中，相同的key被放在同一个分区，可以通过增加后缀，使key变为key1，key2……keyN，让一个分区的key分在n个分区</p>
+</li>
+<li><p>可以适当增加executor内存。在内存中的计算比磁盘中的计算要快。（前提是明确知道任务慢是由内存占满导致的，否则盲目增加内存并不会带来实际效果）</p>
+</li>
+<li><p>重复执行，检查速度慢的executor是否为同一台，因为可能会存在某个executor资源不够，例如磁盘被占满，IO被其他程序占用</p>
+</li>
+<li><p>确保聚合函数在一个小的数据集上使用，因为在做聚合时，通常是把所有数据都拉在内存中进行聚合，如果聚合后的结果集超大，那么整体运行还是会比较慢。</p>
+</li>
+<li><p>查看是否在操作数据时创建大的对象。因为数据集比较大时，如果频繁创建对象，必然会有垃圾回收器来回收这些对象，垃圾回收会降低执行速率。</p>
+</li>
+</ul>
+<p>上面是任务执行缓慢可以参考的几个优化点，因为实际情况出现的问题会多样化，因此需要先明确原因，再根据对应的方案进行优化。</p>
+<h4 id="慢聚合"><a href="#慢聚合" class="headerlink" title="慢聚合"></a>慢聚合</h4><p>在某些聚合操作时，会变得非常慢，例如groupByKey或reduceByKey。它们都是将相同的key存放在一个分区，因此，在遇到聚合操作缓慢时，优先根据上边慢任务来排查问题。</p>
+<p>聚合慢主要有下面两种表现：</p>
+<ul>
+<li>聚合过程慢</li>
+<li>聚合后的任务也慢</li>
+</ul>
+<p>对应的解决方式，其实就是排查是否有数据倾斜问题，如有，解决数据倾斜问题。后续会有一章来介绍如何解决数据倾斜问题。如果并非数据倾斜，但依然比较慢，可以通过以下方式来进行优化：</p>
+<ul>
+<li>聚合前适度增加分区数量，让每个分区中的数据集缩小，从而提高聚合效率。（注意最大并行度）</li>
+<li>检查内存是否全部使用完，如有则可以适当提高单个executor内存，因为在内存计算比磁盘计算要快。</li>
+<li>如果聚合后的任务依然很慢，说明聚合后的数据集分布还是不够均匀，可以通过repartition进行重新分区（key随机分区）使数据分布更均匀，如果repartition后以后慢，数据不均匀，那么就是出现了数据倾斜，某个key具有大量的数据集。</li>
+<li>如果程序中有filter这样的操作，一定要在聚合前filter，因为filter会过滤掉一部分数据，做聚合时计算会减少，提高聚合效率。</li>
+<li>如果对于null的值，尽量写null，而不是给一个默认值，如空字符串。因为spark优化器会自动跳过null的数据集，但是不会跳过特殊设置的占用符，因此，如果有空的值，尽量保证它是null。</li>
+</ul>
+<h4 id="慢join"><a href="#慢join" class="headerlink" title="慢join"></a>慢join</h4><p>join操作也是经常遇见的一个操作，它和聚合函数相似，都是一个shuffer算子。因此它们的表现形式和处理方式大致相同。</p>
+<ul>
+<li>对于多个join，可以尝试改变join顺序。因为某两个数据集在join后，会过滤掉大量的数据集，从而后面的join将会变得更轻松。</li>
+<li>同理就是filter等操作要在join之前，因为filter后会减少一部分数据，再join就会相对较快了。</li>
+</ul>
+<h4 id="读写慢"><a href="#读写慢" class="headerlink" title="读写慢"></a>读写慢</h4><p>spark应用一般避免不了两点：从数据源读数据和向数据仓库写数据。某些时候读写也会变得很慢。</p>
+<p>例如前段时间，线上hbase出现故障，故障修复后，原来的程序变得非常缓慢，原来只要几分钟就能执行完的，现在需要几个小时。通过监控，发现在读HBase中的数据时，变得非常缓慢。</p>
+<p>对于读写慢，可以有下面几种措施来处理：</p>
+<ul>
+<li><p>设置spark.speculation为true，可以提高读写速率。</p>
+<blockquote>
+<p>因为负载不均、资源不均等问题引起某个job中的多个task运行速度不一致，某些慢的task拖延了整体job的运行速度。设置该参数后，spark内部会在多个executor中启动同一个task，哪个先执行完成，就用哪个返回的结果，顺便将其他运行中的task关闭。这是一种空间换时间的方式。其主要目的是用来推测是否是由于某个节点资源缺乏导致的。不能实际解决数据倾斜问题。如果在集群资源紧缺的情况下，不建议开启此配置。</p>
+</blockquote>
+</li>
+<li><p>确保有足够的带宽可以访问数据源和文件系统</p>
+</li>
+<li><p>数据倾斜时，重新分配数据源（如HBase的Regin）</p>
+</li>
+</ul>
+<h4 id="Driver程序内存溢出"><a href="#Driver程序内存溢出" class="headerlink" title="Driver程序内存溢出"></a>Driver程序内存溢出</h4><p>Driver程序内存溢出其实很容易理解。可以先回顾一下Driver程序都在做什么事：</p>
+<ul>
+<li>运行driver程序</li>
+<li>向executor分发任务</li>
+<li>监控executor运行状态</li>
+<li>接收executor返回结果</li>
+</ul>
+<p>从这几方面可以看出，能在driver端发生内存溢出的场景，无非就是Driver端程序操作了大量数据（前面有介绍如何判断Driver程序和Executor程序）和Executor返回了大量数据。</p>
+<p>所以解决方式也是比较简单的。</p>
+<ul>
+<li>查看是否在driver端读取了大量数据集，比如广播变量时，变量太大</li>
+<li>查看是否有大循环创建对象</li>
+<li>查看是否通过collect从executor收集数据</li>
+<li>如果很多操作都是必须的，可以适度增大driver内存</li>
+</ul>
+<h4 id="Executor程序内存溢出"><a href="#Executor程序内存溢出" class="headerlink" title="Executor程序内存溢出"></a>Executor程序内存溢出</h4><p>Executor内存溢出也是经常发生的事，需要你充分了解RDD的所有算子的运行机制，这样才能避免内存溢出的情况发生。因为大数据集并不会造成内存溢出（内存不够会使用磁盘），只有在部分不合适的算子中才会出现。</p>
+<p>executor内存溢出有如下表现：</p>
+<ul>
+<li>SparkUI中可以看到某个executor出现OutOfMemoryErrors</li>
+<li>executor崩溃或无响应（通常访问spark ui时变得缓慢）</li>
+</ul>
+<p>对应的处理方式有如下措施：</p>
+<ul>
+<li>尝试增加executor内存和增大executor数量</li>
+<li>查看是否创建大量对象</li>
+<li>查看是否有不合适的算子。例如（mapPartition）</li>
+</ul>
+<h4 id="结果中出现了意想不到的空值"><a href="#结果中出现了意想不到的空值" class="headerlink" title="结果中出现了意想不到的空值"></a>结果中出现了意想不到的空值</h4><p>spark程序中已经过滤了null值，但是在输出结果中还是出现了null值。</p>
+<p>例如在向hive写数据时，发现某些字段是null，可能原因是hive中对应的数据结构和输出时的数据结构不一致。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/spark/" rel="tag"># spark</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/" rel="prev" title="Spark之五:Spark运行机制">
+      <i class="fa fa-chevron-left"></i> Spark之五:Spark运行机制
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E4%B8%83-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="next" title="">
+       <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark%E7%8E%AF%E5%A2%83%E7%9B%91%E6%8E%A7"><span class="nav-number">1.</span> <span class="nav-text">Spark环境监控</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Spark-Applications-and-Jobs"><span class="nav-number">1.1.</span> <span class="nav-text">Spark Applications and Jobs</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#JVM"><span class="nav-number">1.2.</span> <span class="nav-text">JVM</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#OS"><span class="nav-number">1.3.</span> <span class="nav-text">OS</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cluster"><span class="nav-number">1.4.</span> <span class="nav-text">cluster</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark-UI"><span class="nav-number">2.</span> <span class="nav-text">Spark UI</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AF%BBcsv%E6%96%87%E4%BB%B6%E5%B9%B6%E9%87%8D%E5%88%86%E5%8C%BA"><span class="nav-number">2.1.</span> <span class="nav-text">读csv文件并重分区</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%96%E6%95%B0%E6%8D%AE%E5%B9%B6%E8%BF%9B%E8%A1%8C%E8%81%9A%E5%90%88"><span class="nav-number">2.2.</span> <span class="nav-text">取数据并进行聚合</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9C%80%E5%90%8E%E9%98%B6%E6%AE%B5%EF%BC%9A%E7%BB%9F%E8%AE%A1%E9%98%B6%E6%AE%B5"><span class="nav-number">2.3.</span> <span class="nav-text">最后阶段：统计阶段</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#spark-jobs"><span class="nav-number">2.4.</span> <span class="nav-text">spark jobs</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#spark-stages"><span class="nav-number">2.5.</span> <span class="nav-text">spark stages</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark-UI-History-Server"><span class="nav-number">3.</span> <span class="nav-text">Spark UI History Server</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spark%E9%97%AE%E9%A2%98%E6%B1%87%E6%80%BB%E5%8F%8A%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F"><span class="nav-number">4.</span> <span class="nav-text">spark问题汇总及处理方式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#spark-job-%E5%90%AF%E5%8A%A8%E7%9B%B8%E5%85%B3"><span class="nav-number">4.1.</span> <span class="nav-text">spark job 启动相关</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E5%89%8D%E5%8F%91%E7%94%9F%E7%9A%84%E9%94%99%E8%AF%AF"><span class="nav-number">4.2.</span> <span class="nav-text">执行前发生的错误</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%85%A2%E4%BB%BB%E5%8A%A1"><span class="nav-number">4.3.</span> <span class="nav-text">慢任务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%85%A2%E8%81%9A%E5%90%88"><span class="nav-number">4.4.</span> <span class="nav-text">慢聚合</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%85%A2join"><span class="nav-number">4.5.</span> <span class="nav-text">慢join</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AF%BB%E5%86%99%E6%85%A2"><span class="nav-number">4.6.</span> <span class="nav-text">读写慢</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Driver%E7%A8%8B%E5%BA%8F%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA"><span class="nav-number">4.7.</span> <span class="nav-text">Driver程序内存溢出</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Executor%E7%A8%8B%E5%BA%8F%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA"><span class="nav-number">4.8.</span> <span class="nav-text">Executor程序内存溢出</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%BB%93%E6%9E%9C%E4%B8%AD%E5%87%BA%E7%8E%B0%E4%BA%86%E6%84%8F%E6%83%B3%E4%B8%8D%E5%88%B0%E7%9A%84%E7%A9%BA%E5%80%BC"><span class="nav-number">4.9.</span> <span class="nav-text">结果中出现了意想不到的空值</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

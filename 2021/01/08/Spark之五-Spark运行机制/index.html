@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念 driverdirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。driver进程主要负责">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark之五:Spark运行机制">
+<meta property="og:url" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念 driverdirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。driver进程主要负责">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086868(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086966(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087065(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087104(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087147(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087199(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087456(1).jpg">
+<meta property="article:published_time" content="2021-01-08T06:17:24.000Z">
+<meta property="article:modified_time" content="2021-01-08T06:31:43.776Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="spark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086868(1).jpg">
+
+<link rel="canonical" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Spark之五:Spark运行机制 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Spark之五:Spark运行机制
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-08 14:17:24 / 修改时间：14:31:43" itemprop="dateCreated datePublished" datetime="2021-01-08T14:17:24+08:00">2021-01-08</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="核心概念"><a href="#核心概念" class="headerlink" title="核心概念"></a>核心概念</h3><p>在介绍集群模式前，先来再回顾一下spark中的几个核心概念</p>
+<h4 id="driver"><a href="#driver" class="headerlink" title="driver"></a>driver</h4><p>dirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。<br>driver进程主要负责三件事：</p>
+<a id="more"></a>
+
+<ul>
+<li>运行main程序</li>
+<li>将spark任务分发到executor，并监控每个executor的运行状态</li>
+<li>向用户反馈spark应用的运行过程</li>
+</ul>
+<h4 id="executor"><a href="#executor" class="headerlink" title="executor"></a>executor</h4><p>executor是执行dirver分配的任务的进程(jvm)，它承担的责任是：运行dirver分配的任务、向driver汇报执行结果(成功或失败)。每个spark应用都有自己独立的一套executor，它们不能再被别的spark应用使用。</p>
+<h4 id="partition"><a href="#partition" class="headerlink" title="partition"></a>partition</h4><p>spark任务能够并行执行，并不是说我们在启动时分配了n个executor，而是partition的个数。spark将操作的数据分解成为块，这些数据块称为partition。例如读取一张10万行的表，如果设置的partition个数是1，即只有一个数据块，那么即使你启动了千个executor，也只有一个executor来读取这十万行的表。因此，partition是真正决定spark任务并行度的关键因素。spark的最大并行度是：number executor * executor core。如果partitions &gt; 最大并行度，那么有一部分partition需要等其他partition结束才能开始执行。</p>
+<h4 id="cluster-manager"><a href="#cluster-manager" class="headerlink" title="cluster manager"></a>cluster manager</h4><p>driver和executor并不是凭空出现的，它们是由cluster manager提供而来。cluster manager主要的责任是维护运行你的spark应用的机器。它本身也是一个主从架构，只是它们与实际的物理计算机绑定。而spark应用中的dirver、executor只是从这些物理机上启动了一个进程(jvm)而已。例如我们比较熟悉的yarn，就是一个cluster manager。</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086868(1).jpg"></p>
+<p>图中，左边是集群中的一个driver节点（如果是yarn集群，通常是master节点），右边是集群中的多个worker节点（如果是yarn集群，通常是slaves节点）。圆圈代表每个driver process和worker process，这儿不要和spark的dirver和executor混淆，这儿的dirver process在yarn中，就是ResourceManager，worker process在yarn中是NodeManager。</p>
+<p>spark目前可以运行在以下几种cluster manager中</p>
+<ul>
+<li>standalone </li>
+<li>mesos</li>
+<li>yarn</li>
+<li>Kubernetes</li>
+</ul>
+<p>可以根据自己的需求来决定运行在哪个cluster manager中。通常我们运行在yarn中。</p>
+<h3 id="Spark运行模式"><a href="#Spark运行模式" class="headerlink" title="Spark运行模式"></a>Spark运行模式</h3><p>不管是运行在哪种cluster manager中，运行spark应用通常有三种模式</p>
+<ul>
+<li>cluster mode</li>
+<li>client mode</li>
+<li>local mode</li>
+</ul>
+<h4 id="cluster-mode"><a href="#cluster-mode" class="headerlink" title="cluster mode"></a>cluster mode</h4><p>cluster mode是工作中最常用的一种模式，用户将自己已经编译好的jar提交到cluster manager后，cluster manager会在内部寻找worker节点来运行spark应用。</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086966(1).jpg"></p>
+<h4 id="client-mode"><a href="#client-mode" class="headerlink" title="client mode"></a>client mode</h4><p>client mode与cluster mode类似，不同点在于，driver process是在提交spark应用程序的节点上启动的，也就是说，客户端节点来维护driver process，cluster manager来维护executor process。</p>
+<p>需要明确一点的是，任意计算机都可以提交spark应用，前提是它们可以通过网络访问到集群。如果你提交spark应用的计算机是集群内部的一个节点，则可以使用client mode，如果你提交spark应用程序的计算机是集群外的，比如你自己的笔记本，推荐使用cluster mode。因为client mode会有大量网络I/O，效率不会很高。</p>
+<h4 id="local-mode"><a href="#local-mode" class="headerlink" title="local mode"></a>local mode</h4><p>local mode模式就是我们本地模式，dirver process、executor process都由本地计算机启动。比如我们写完spark任务后，直接run进行测试。一般用于学习和测试时，在生产上不适用。</p>
+<h3 id="Spark应用的生命周期"><a href="#Spark应用的生命周期" class="headerlink" title="Spark应用的生命周期"></a>Spark应用的生命周期</h3><p>我们通过一个demo来说明spark的生命周期。假设我们需要将spark应用提交到yarn上，yarn集群一共4个节点，一个ResourceManager，三个NodeManager。</p>
+<h4 id="客户端提交spark应用"><a href="#客户端提交spark应用" class="headerlink" title="客户端提交spark应用"></a>客户端提交spark应用</h4><p>第一步，将你已经编译好的spark应用提交至yarn集群。客户端可以任意选择，假如是你本地计算机，使用cluster mode提交。该步骤表示，我们告诉yarn集群，我们需要一个节点（资源）来运行spark driver process。假如yarn集群接受了我们的请求，并将spark driver process放在了某个节点上执行，此时我们的客户端便可以断开与集群的连接，集群依旧保持运行。如下图：</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087065(1).jpg"></p>
+<p>你也可以不用断开与集群的连接，集群会间隔的发送应用的app_id过来。</p>
+<h4 id="分发任务"><a href="#分发任务" class="headerlink" title="分发任务"></a>分发任务</h4><p>提交完spark应用后，此时，整个spark程序已经在集群上了。driver会根据程序中设定的参数或提交时指定的参数，来向cluster manager申请资源去启动executor来运行task，cluster manager启动executor后，会将该executor的位置(哪个节点)发送给driver。如下图：</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087104(1).jpg"></p>
+<p>说明：</p>
+<ul>
+<li>黄色圆圈代表ResourceManager</li>
+<li>绿色圆圈代表NodeManager</li>
+<li>橙色实线方框代表spark driver process</li>
+<li>橙色虚线方框代表spark executor process</li>
+<li>红色箭头代表向ResourceManager申请资源，启动executor</li>
+<li>黄色箭头代表在NodeManager中启动executor</li>
+</ul>
+<h4 id="执行任务"><a href="#执行任务" class="headerlink" title="执行任务"></a>执行任务</h4><p>任务分发完成之后，集群开始执行spark任务。dirver和executor会相互通信，spark driver process会将任务调度到executor process，executor process开始执行task，并将执行task的进度分发到driver process。期中，每个driver process、executor process实际上就是一个jvm。</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087147(1).jpg"></p>
+<h4 id="执行结束"><a href="#执行结束" class="headerlink" title="执行结束"></a>执行结束</h4><p>spark任务执行结束，不管是成功还是失败，ResourceManager会去关闭执行spark程序的executor。如下图：</p>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087199(1).jpg"></p>
+<p>至此，整个spark任务的基本过程已介绍完，下面我们详细介绍一下它的详细执行过程。</p>
+<h3 id="Spark应用的生命周期2"><a href="#Spark应用的生命周期2" class="headerlink" title="Spark应用的生命周期2"></a>Spark应用的生命周期2</h3><p>前面介绍的是spark应用运行的一个生命周期，下面专注介绍一下spark应用内部的一些知识。</p>
+<h4 id="SparkSession"><a href="#SparkSession" class="headerlink" title="SparkSession"></a>SparkSession</h4><p>每一个spark应用程序的第一步是创建SparkSession。SparkSession是整个spark应用的生命周期，创建SparkSession推荐使用SparkSession.builder来创建，因为它可以更健壮的实例化sparkContext和sqlContext。</p>
+<h5 id="SparkSession、SparkContext、SqlContext区别"><a href="#SparkSession、SparkContext、SqlContext区别" class="headerlink" title="SparkSession、SparkContext、SqlContext区别"></a>SparkSession、SparkContext、SqlContext区别</h5><p>SparkSession是用来定义整个spark应用的执行环境，由SparkSession可以创建出SparkContext和SqlContext。SparkContext是spark上下文，它在spark应用中始终只有一个，如果要启动多个SparkContext，需要先停止掉之前创建的。SqlContext是用来执行SQL的上下文。SparkContext操作的是底层的RDD，SqlContext操作的是高层的SQL语句，其底层还是转换为RDD形式。</p>
+<h4 id="Spark-Job"><a href="#Spark-Job" class="headerlink" title="Spark Job"></a>Spark Job</h4><p>一般情况下，一个action对应一个spark job，每个action都会返回结果。每个job分为几个stage，一般stage的划分是以shuffer来划分。</p>
+<h4 id="stage"><a href="#stage" class="headerlink" title="stage"></a>stage</h4><p>stage表示spark任务的执行阶段，意味着，在当前阶段，spark集群可以同时进行执行，一个stage可以被分成多个task来执行。某个stage执行完成之后，进入下一个stage。为了更方便理解，下面是以wordcount为例，stage的物理执行过程图。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]): <span class="type">Unit</span> = &#123;</span><br><span class="line">    <span class="keyword">val</span> sparkSession = <span class="type">SparkSession</span>.builder().master(<span class="string">&quot;local[*]&quot;</span>).appName(<span class="string">&quot;Test&quot;</span>).getOrCreate()</span><br><span class="line">    <span class="keyword">val</span> lines = sparkSession.sparkContext.textFile(<span class="string">&quot;xxx&quot;</span>)</span><br><span class="line">    </span><br><span class="line">    lines.flatMap(line =&gt; line.split(<span class="string">&quot; &quot;</span>))</span><br><span class="line">    	.map(word =&gt; (word, <span class="number">1</span>))</span><br><span class="line">    	.reduceByKey((t1, t2) =&gt; t1 + t2)</span><br><span class="line">    	.collect()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087456(1).jpg"></p>
+<p>注意：多个stage并行执行时，执行顺序是随机的。例如rdd1和rdd2join时，生成rdd1的stage和生成rdd2的stage是随机来执行的。</p>
+<h4 id="task"><a href="#task" class="headerlink" title="task"></a>task</h4><p>task是实际来执行spark的最小单位，一般分区的数量决定task的数量。一个分区一个task。将任务分为更多的分区意味着会有更大的并行度，调大分区个数虽然不是万能的，但是也是某些时候进行性能调优的一个重要依据。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/spark/" rel="tag"># spark</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E5%9B%9B-Spark%E6%8F%90%E4%BA%A4%E4%BB%BB%E5%8A%A1/" rel="prev" title="Spark之四:Spark提交任务">
+      <i class="fa fa-chevron-left"></i> Spark之四:Spark提交任务
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E5%85%AD-Spark%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95/" rel="next" title="Spark之六:Spark监控和调试">
+      Spark之六:Spark监控和调试 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="nav-number">1.</span> <span class="nav-text">核心概念</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#driver"><span class="nav-number">1.1.</span> <span class="nav-text">driver</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#executor"><span class="nav-number">1.2.</span> <span class="nav-text">executor</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#partition"><span class="nav-number">1.3.</span> <span class="nav-text">partition</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#cluster-manager"><span class="nav-number">1.4.</span> <span class="nav-text">cluster manager</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark%E8%BF%90%E8%A1%8C%E6%A8%A1%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text">Spark运行模式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#cluster-mode"><span class="nav-number">2.1.</span> <span class="nav-text">cluster mode</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#client-mode"><span class="nav-number">2.2.</span> <span class="nav-text">client mode</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#local-mode"><span class="nav-number">2.3.</span> <span class="nav-text">local mode</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark%E5%BA%94%E7%94%A8%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="nav-number">3.</span> <span class="nav-text">Spark应用的生命周期</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E6%8F%90%E4%BA%A4spark%E5%BA%94%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">客户端提交spark应用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%86%E5%8F%91%E4%BB%BB%E5%8A%A1"><span class="nav-number">3.2.</span> <span class="nav-text">分发任务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E4%BB%BB%E5%8A%A1"><span class="nav-number">3.3.</span> <span class="nav-text">执行任务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E7%BB%93%E6%9D%9F"><span class="nav-number">3.4.</span> <span class="nav-text">执行结束</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Spark%E5%BA%94%E7%94%A8%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F2"><span class="nav-number">4.</span> <span class="nav-text">Spark应用的生命周期2</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#SparkSession"><span class="nav-number">4.1.</span> <span class="nav-text">SparkSession</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#SparkSession%E3%80%81SparkContext%E3%80%81SqlContext%E5%8C%BA%E5%88%AB"><span class="nav-number">4.1.1.</span> <span class="nav-text">SparkSession、SparkContext、SqlContext区别</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Spark-Job"><span class="nav-number">4.2.</span> <span class="nav-text">Spark Job</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#stage"><span class="nav-number">4.3.</span> <span class="nav-text">stage</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#task"><span class="nav-number">4.4.</span> <span class="nav-text">task</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

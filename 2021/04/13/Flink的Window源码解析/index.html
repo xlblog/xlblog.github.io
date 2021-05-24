@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Flink的Window源码剖析Window 可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下： 123public abstract class Window &amp;#123;	public abstract long maxTimestamp();&amp;#125; 可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flink的Window源码解析">
+<meta property="og:url" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="Flink的Window源码剖析Window 可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下： 123public abstract class Window &amp;#123;	public abstract long maxTimestamp();&amp;#125; 可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/2.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/3.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/4.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/6.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/5.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/7.jpg">
+<meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/8.jpg">
+<meta property="article:published_time" content="2021-04-13T09:13:55.000Z">
+<meta property="article:modified_time" content="2021-04-13T09:22:57.529Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="flink">
+<meta property="article:tag" content="bigdata">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg">
+
+<link rel="canonical" href="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Flink的Window源码解析 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Flink的Window源码解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-04-13 17:13:55 / 修改时间：17:22:57" itemprop="dateCreated datePublished" datetime="2021-04-13T17:13:55+08:00">2021-04-13</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Flink的Window源码剖析"><a href="#Flink的Window源码剖析" class="headerlink" title="Flink的Window源码剖析"></a>Flink的Window源码剖析</h1><h2 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h2><p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg"></p>
+<p>可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Window &#123;</span><br><span class="line">	public abstract long maxTimestamp();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最大时间戳。</p>
+<a id="more"></a>
+
+<h3 id="TimeWindow"><a href="#TimeWindow" class="headerlink" title="TimeWindow"></a>TimeWindow</h3><p>首先看TimeWindow的数据结构：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br></pre></td><td class="code"><pre><span class="line">public class TimeWindow extends Window &#123;</span><br><span class="line"></span><br><span class="line">	private final long start;</span><br><span class="line">	private final long end;</span><br><span class="line"></span><br><span class="line">	public TimeWindow(long start, long end) &#123;</span><br><span class="line">		this.start &#x3D; start;</span><br><span class="line">		this.end &#x3D; end;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	</span><br><span class="line">	public long getStart() &#123;</span><br><span class="line">		return start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public long getEnd() &#123;</span><br><span class="line">		return end;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public long maxTimestamp() &#123;</span><br><span class="line">		return end - 1;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public boolean equals(Object o) &#123;</span><br><span class="line">		if (this &#x3D;&#x3D; o) &#123;</span><br><span class="line">			return true;</span><br><span class="line">		&#125;</span><br><span class="line">		if (o &#x3D;&#x3D; null || getClass() !&#x3D; o.getClass()) &#123;</span><br><span class="line">			return false;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		TimeWindow window &#x3D; (TimeWindow) o;</span><br><span class="line"></span><br><span class="line">		return end &#x3D;&#x3D; window.end &amp;&amp; start &#x3D;&#x3D; window.start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public int hashCode() &#123;</span><br><span class="line">		return MathUtils.longToIntWithBitMixing(start + end);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public String toString() &#123;</span><br><span class="line">		return &quot;TimeWindow&#123;&quot; +</span><br><span class="line">				&quot;start&#x3D;&quot; + start +</span><br><span class="line">				&quot;, end&#x3D;&quot; + end +</span><br><span class="line">				&#39;&#125;&#39;;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public boolean intersects(TimeWindow other) &#123;</span><br><span class="line">		return this.start &lt;&#x3D; other.end &amp;&amp; this.end &gt;&#x3D; other.start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public TimeWindow cover(TimeWindow other) &#123;</span><br><span class="line">		return new TimeWindow(Math.min(start, other.start), Math.max(end, other.end));</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	......</span><br><span class="line">	</span><br><span class="line">	public static void mergeWindows(Collection&lt;TimeWindow&gt; windows, MergingWindowAssigner.MergeCallback&lt;TimeWindow&gt; c) &#123;</span><br><span class="line"></span><br><span class="line">		List&lt;TimeWindow&gt; sortedWindows &#x3D; new ArrayList&lt;&gt;(windows);</span><br><span class="line"></span><br><span class="line">		Collections.sort(sortedWindows, new Comparator&lt;TimeWindow&gt;() &#123;</span><br><span class="line">			@Override</span><br><span class="line">			public int compare(TimeWindow o1, TimeWindow o2) &#123;</span><br><span class="line">				return Long.compare(o1.getStart(), o2.getStart());</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;);</span><br><span class="line"></span><br><span class="line">		List&lt;Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt;&gt; merged &#x3D; new ArrayList&lt;&gt;();</span><br><span class="line">		Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt; currentMerge &#x3D; null;</span><br><span class="line"></span><br><span class="line">		for (TimeWindow candidate: sortedWindows) &#123;</span><br><span class="line">			if (currentMerge &#x3D;&#x3D; null) &#123;</span><br><span class="line">				currentMerge &#x3D; new Tuple2&lt;&gt;();</span><br><span class="line">				currentMerge.f0 &#x3D; candidate;</span><br><span class="line">				currentMerge.f1 &#x3D; new HashSet&lt;&gt;();</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125; else if (currentMerge.f0.intersects(candidate)) &#123;</span><br><span class="line">				currentMerge.f0 &#x3D; currentMerge.f0.cover(candidate);</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125; else &#123;</span><br><span class="line">				merged.add(currentMerge);</span><br><span class="line">				currentMerge &#x3D; new Tuple2&lt;&gt;();</span><br><span class="line">				currentMerge.f0 &#x3D; candidate;</span><br><span class="line">				currentMerge.f1 &#x3D; new HashSet&lt;&gt;();</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		if (currentMerge !&#x3D; null) &#123;</span><br><span class="line">			merged.add(currentMerge);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		for (Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt; m: merged) &#123;</span><br><span class="line">			if (m.f1.size() &gt; 1) &#123;</span><br><span class="line">				c.merge(m.f1, m.f0);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public static long getWindowStartWithOffset(long timestamp, long offset, long windowSize) &#123;</span><br><span class="line">		return timestamp - (timestamp - offset + windowSize) % windowSize;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>该窗口主要用于实现时间驱动的相关操作</strong>。</p>
+<p>可以看到。TimeWindow由start和end2个时间戳组成，最大时间戳为end-1，同时，TimeWindow提供了getWindowStartWithOffset静态方法，用于获取时间戳所属时间窗的起点，其中的offset为偏移量。例如，没有偏移量的话，小时滚动窗口将按时间纪元来对齐，也就是1:00:00–1:59:59,2:00:00–2:59:59等，如果你指定了15分钟的偏移，你将得到1:15:00–2:14:59,2:15:00–3:14:59等。时间偏移主要用于调准非0时区的窗口，例如:在中国你需要指定8小时的时间偏移。</p>
+<p>intersects方法用于判断2个时间窗是否有交集，cover方法用于求2个时间窗的合集，mergeWindows用于将时间窗集合进行合并，该方法是实现Session Window的关键。</p>
+<p>对于session window来说，我们需要窗口变得更灵活。基本的思想是这样的：SessionWindows assigner 会为每个进入的元素分配一个窗口，该窗口以元素的时间戳作为起始点，时间戳加会话超时时间为结束点，也就是该窗口为[timestamp, timestamp+sessionGap)。比如我们现在到了两个元素，它们被分配到两个独立的窗口中，两个窗口目前不相交，如图：</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/2.jpg"></p>
+<p>当第三个元素进入时，分配到的窗口与现有的两个窗口发生了叠加，情况变成了这样：</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/3.jpg"></p>
+<p>由于我们支持了窗口的合并，WindowAssigner可以合并这些窗口。它会遍历现有的窗口，并告诉系统哪些窗口需要合并成新的窗口。Flink 会将这些窗口进行合并，合并的主要内容有两部分：</p>
+<ul>
+<li>需要合并的窗口的底层状态的合并（也就是窗口中缓存的数据，或者对于聚合窗口来说是一个聚合值）；</li>
+<li>需要合并的窗口的Trigger的合并（比如对于EventTime来说，会删除旧窗口注册的定时器，并注册新窗口的定时器）。</li>
+</ul>
+<p>总之，结果是三个元素现在在同一个窗口中：</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/4.jpg"></p>
+<p>需要注意的是，对于每一个新进入的元素，都会分配一个属于该元素的窗口，都会检查并合并现有的窗口。在触发窗口计算之前，每一次都会检查该窗口是否可以和其他窗口合并，直到trigger触发后，会将该窗口从窗口列表中移除。对于 event time 来说，窗口的触发是要等到大于窗口结束时间的 watermark 到达，当watermark没有到，窗口会一直缓存着。所以基于这种机制，可以做到对乱序消息的支持。</p>
+<p>这里有一个优化点可以做，因为每一个新进入的元素都会创建属于该元素的窗口，然后合并。如果新元素连续不断地进来，并且新元素的窗口一直都是可以和之前的窗口重叠合并的，那么其实这里多了很多不必要的创建窗口、合并窗口的操作，我们可以直接将新元素放到那个已存在的窗口，然后扩展该窗口的大小，看起来就像和新元素的窗口合并了一样。</p>
+<h3 id="GlobalWindow"><a href="#GlobalWindow" class="headerlink" title="GlobalWindow"></a>GlobalWindow</h3><p>接着看GlobalWindow：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">public class GlobalWindow extends Window &#123;</span><br><span class="line"></span><br><span class="line">	private static final GlobalWindow INSTANCE &#x3D; new GlobalWindow();</span><br><span class="line"></span><br><span class="line">	private GlobalWindow() &#123; &#125;</span><br><span class="line"></span><br><span class="line">	public static GlobalWindow get() &#123;</span><br><span class="line">		return INSTANCE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public long maxTimestamp() &#123;</span><br><span class="line">		return Long.MAX_VALUE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public boolean equals(Object o) &#123;</span><br><span class="line">		return this &#x3D;&#x3D; o || !(o &#x3D;&#x3D; null || getClass() !&#x3D; o.getClass());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public int hashCode() &#123;</span><br><span class="line">		return 0;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public String toString() &#123;</span><br><span class="line">		return &quot;GlobalWindow&quot;;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	&#x2F;**</span><br><span class="line">	 * 序列化相关操作</span><br><span class="line">	 *&#x2F;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>GlobalWindow提供了get()静态方法用于获取GlobalWindow实例，maxTimestamp()统一返回Long的最大值，而hashCode统一返回0。</p>
+<p><strong>该窗口主要用于实现数据驱动的相关操作</strong>。</p>
+<h2 id="WindowAssigner"><a href="#WindowAssigner" class="headerlink" title="WindowAssigner"></a>WindowAssigner</h2><p>顾名思义，WindowAssigner用来决定某个元素被分配到哪个/哪些窗口中去。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">public abstract class WindowAssigner&lt;T, W extends Window&gt; implements Serializable &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">	public abstract Collection&lt;W&gt; assignWindows(T element, long timestamp, WindowAssignerContext context);</span><br><span class="line"></span><br><span class="line">	public abstract Trigger&lt;T, W&gt; getDefaultTrigger(StreamExecutionEnvironment env);</span><br><span class="line"></span><br><span class="line">	public abstract TypeSerializer&lt;W&gt; getWindowSerializer(ExecutionConfig executionConfig);</span><br><span class="line"></span><br><span class="line">	public abstract boolean isEventTime();</span><br><span class="line"></span><br><span class="line">	public abstract static class WindowAssignerContext &#123;</span><br><span class="line"></span><br><span class="line">		public abstract long getCurrentProcessingTime();</span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>首先看assignWindows方法，其输入element为待分配的元素，timestamp为element持有的时间戳，context为该分配器的上下文容器，返回值为element所属的窗口集合，也就说，同一条数据元素，可能会被分配到多个窗口中去。但并不是将该数据复制到多个窗口中去，Window本身只是一个ID标识符，其内部可能存储了一些元数据，如TimeWindow中有开始和结束时间，但是并不会存储窗口中的元素。窗口中的元素实际存储在 Key/Value State 中，key为Window，value为元素集合（或聚合值）。为了保证窗口的容错性，该实现依赖了 Flink 的 State 机制（参见 state 文档）。</p>
+<p>接着看其他方法，getDefaultTrigger用于返回该窗口默认的触发器，getWindowSerializer用于返回窗口的序列化器，isEventTime用于判断是否基于event time来进行元素的分配。</p>
+<p>最后看一下WindowAssignerContext这个上下文容器，其是一个内部静态抽象类，提供了getCurrentProcessingTime方法用于获取当前的processing time。</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/6.jpg"></p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/5.jpg"></p>
+<p>看一下WindowAssigner的实现类，GlobalWindows主要用于实现CountWindow，MergingWindowAssigner主要用于实现SessionWindow，剩下的分别基于processing time和event time实现了翻滚窗口和滑动窗口。</p>
+<p>先捡软柿子捏，首先看较为简单的GlobalWindows：</p>
+<h3 id="GlobalWindows"><a href="#GlobalWindows" class="headerlink" title="GlobalWindows"></a>GlobalWindows</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">public class GlobalWindows extends WindowAssigner&lt;Object, GlobalWindow&gt; &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">	private GlobalWindows() &#123;&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public Collection&lt;GlobalWindow&gt; assignWindows(Object element, long timestamp, WindowAssignerContext context) &#123;</span><br><span class="line">		return Collections.singletonList(GlobalWindow.get());</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public Trigger&lt;Object, GlobalWindow&gt; getDefaultTrigger(StreamExecutionEnvironment env) &#123;</span><br><span class="line">		return new NeverTrigger();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public String toString() &#123;</span><br><span class="line">		return &quot;GlobalWindows()&quot;;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public static GlobalWindows create() &#123;</span><br><span class="line">		return new GlobalWindows();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Internal</span><br><span class="line">	public static class NeverTrigger extends Trigger&lt;Object, GlobalWindow&gt; &#123;</span><br><span class="line">		private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public TriggerResult onElement(Object element, long timestamp, GlobalWindow window, TriggerContext ctx) &#123;</span><br><span class="line">			return TriggerResult.CONTINUE;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public TriggerResult onEventTime(long time, GlobalWindow window, TriggerContext ctx) &#123;</span><br><span class="line">			return TriggerResult.CONTINUE;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public TriggerResult onProcessingTime(long time, GlobalWindow window, TriggerContext ctx) &#123;</span><br><span class="line">			return TriggerResult.CONTINUE;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public void clear(GlobalWindow window, TriggerContext ctx) throws Exception &#123;&#125;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public void onMerge(GlobalWindow window, OnMergeContext ctx) &#123;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public TypeSerializer&lt;GlobalWindow&gt; getWindowSerializer(ExecutionConfig executionConfig) &#123;</span><br><span class="line">		return new GlobalWindow.Serializer();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public boolean isEventTime() &#123;</span><br><span class="line">		return false;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>GlobalWindows提供了create静态方法用于返回GlobalWindows实例，assignWindows方法会将上游的元素全都分配到一个单例GlobalWindow中，其默认的Trigger为NeverTrigger，即永不触发fire计算。</p>
+<h3 id="TumblingProcessingTimeWindows和TumblingEventTimeWindows"><a href="#TumblingProcessingTimeWindows和TumblingEventTimeWindows" class="headerlink" title="TumblingProcessingTimeWindows和TumblingEventTimeWindows"></a>TumblingProcessingTimeWindows和TumblingEventTimeWindows</h3><p>TumblingProcessingTimeWindows和TumblingEventTimeWindows的assignWindows方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; TumblingProcessingTimeWindows</span><br><span class="line">@Override</span><br><span class="line">public Collection&lt;TimeWindow&gt; assignWindows(Object element, long timestamp, WindowAssignerContext context) &#123;</span><br><span class="line">	&#x2F;&#x2F; 获取当前的processing time</span><br><span class="line">	final long now &#x3D; context.getCurrentProcessingTime();</span><br><span class="line">	&#x2F;&#x2F; 计算当前processing time所属窗口的start</span><br><span class="line">	long start &#x3D; TimeWindow.getWindowStartWithOffset(now, offset, size);</span><br><span class="line">	return Collections.singletonList(new TimeWindow(start, start + size));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; TumblingEventTimeWindows</span><br><span class="line">@Override</span><br><span class="line">public Collection&lt;TimeWindow&gt; assignWindows(Object element, long timestamp, WindowAssignerContext context) &#123;</span><br><span class="line">	if (timestamp &gt; Long.MIN_VALUE) &#123;</span><br><span class="line">		&#x2F;&#x2F; Long.MIN_VALUE is currently assigned when no timestamp is present</span><br><span class="line">		&#x2F;&#x2F; 以元素自带的时间戳(event time)计算窗口的start</span><br><span class="line">		long start &#x3D; TimeWindow.getWindowStartWithOffset(timestamp, offset, size);</span><br><span class="line">		return Collections.singletonList(new TimeWindow(start, start + size));</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		throw new RuntimeException(&quot;Record has Long.MIN_VALUE timestamp (&#x3D; no timestamp marker). &quot; +</span><br><span class="line">				&quot;Is the time characteristic set to &#39;ProcessingTime&#39;, or did you forget to call &quot; +</span><br><span class="line">				&quot;&#39;DataStream.assignTimestampsAndWatermarks(...)&#39;?&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，其逻辑是相似的，区别就在于窗口的start时间，一个使用的是WindowAssignerContext获取的当前时间戳，另外一个则是利用元素的EventTime，通过TimeWindow的getWindowStartWithOffset方法计算得到的。</p>
+<h3 id="SlidingProcessingTimeWindows和SlidingEventTimeWindows"><a href="#SlidingProcessingTimeWindows和SlidingEventTimeWindows" class="headerlink" title="SlidingProcessingTimeWindows和SlidingEventTimeWindows"></a>SlidingProcessingTimeWindows和SlidingEventTimeWindows</h3><p>接着看滑动窗口，以SlidingProcessingTimeWindows为例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public Collection&lt;TimeWindow&gt; assignWindows(Object element, long timestamp, WindowAssignerContext context) &#123;</span><br><span class="line">	&#x2F;&#x2F; 获取当前系统的Processing Time</span><br><span class="line">	timestamp &#x3D; context.getCurrentProcessingTime();</span><br><span class="line">	&#x2F;&#x2F; 初始化窗口集合，窗口个数为size&#x2F;slide</span><br><span class="line">	List&lt;TimeWindow&gt; windows &#x3D; new ArrayList&lt;&gt;((int) (size &#x2F; slide));</span><br><span class="line">	long lastStart &#x3D; TimeWindow.getWindowStartWithOffset(timestamp, offset, slide);</span><br><span class="line">	&#x2F;&#x2F; 计算窗口集合</span><br><span class="line">	for (long start &#x3D; lastStart;</span><br><span class="line">		start &gt; timestamp - size;</span><br><span class="line">		start -&#x3D; slide) &#123;</span><br><span class="line">		windows.add(new TimeWindow(start, start + size));</span><br><span class="line">	&#125;</span><br><span class="line">	return windows;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述代码可能不够直观，我们以一个简单例子来解释上述方法。</p>
+<p>假设基础数据如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">timestamp&#x3D;73;</span><br><span class="line">offset&#x3D;6;</span><br><span class="line">size&#x3D;60;</span><br><span class="line">slide&#x3D;10;</span><br></pre></td></tr></table></figure>
+<p>计算过程：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">集合的大小为：</span><br><span class="line">60&#x2F;10&#x3D;6</span><br><span class="line">上一次起始起始时间:</span><br><span class="line">lastStart&#x3D;timestamp-(timestamp-offset+slide)%slide&#x3D;73-(73-6+10)%10&#x3D;73-7&#x3D;66</span><br><span class="line">则for(start&#x3D;66; start&gt;73-60; start&#x3D;start-10)&#123;</span><br><span class="line">	windows.add(new TimeWindow(start, start + size));</span><br><span class="line">&#125;</span><br><span class="line">windows集合为：</span><br><span class="line">[66, 126]</span><br><span class="line">[56, 116]</span><br><span class="line">[46, 106]</span><br><span class="line">[36, 96]</span><br><span class="line">[26, 86]</span><br><span class="line">[16, 76]</span><br></pre></td></tr></table></figure>
+<p>SlidingEventTimeWindows与SlidingProcessingTimeWindows的assignWindows基本一致，只是额外添加了一层对timestamp的判断，只有当timestamp &gt; Long.MIN_VALUE才会进入到窗口分配，否则抛异常。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public Collection&lt;TimeWindow&gt; assignWindows(Object element, long timestamp, WindowAssignerContext context) &#123;</span><br><span class="line">	if (timestamp &gt; Long.MIN_VALUE) &#123;</span><br><span class="line">		List&lt;TimeWindow&gt; windows &#x3D; new ArrayList&lt;&gt;((int) (size &#x2F; slide));</span><br><span class="line">		long lastStart &#x3D; TimeWindow.getWindowStartWithOffset(timestamp, offset, slide);</span><br><span class="line">		for (long start &#x3D; lastStart;</span><br><span class="line">			start &gt; timestamp - size;</span><br><span class="line">			start -&#x3D; slide) &#123;</span><br><span class="line">			windows.add(new TimeWindow(start, start + size));</span><br><span class="line">		&#125;</span><br><span class="line">		return windows;</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		throw new RuntimeException(&quot;Record has Long.MIN_VALUE timestamp (&#x3D; no timestamp marker). &quot; +</span><br><span class="line">				&quot;Is the time characteristic set to &#39;ProcessingTime&#39;, or did you forget to call &quot; +</span><br><span class="line">				&quot;&#39;DataStream.assignTimestampsAndWatermarks(...)&#39;?&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="MergingWindowAssigner"><a href="#MergingWindowAssigner" class="headerlink" title="MergingWindowAssigner"></a>MergingWindowAssigner</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public abstract class MergingWindowAssigner&lt;T, W extends Window&gt; extends WindowAssigner&lt;T, W&gt; &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">	public abstract void mergeWindows(Collection&lt;W&gt; windows, MergeCallback&lt;W&gt; callback);</span><br><span class="line"></span><br><span class="line">	public interface MergeCallback&lt;W&gt; &#123;</span><br><span class="line"></span><br><span class="line">		void merge(Collection&lt;W&gt; toBeMerged, W mergeResult);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>MergingWindowAssigner主要提供了MergeCallback抽象接口，然后将该接口传递给TimeWindow的mergeWindows方法来进行窗口的合并(具体可看TimeWindow)。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public static void mergeWindows(Collection&lt;TimeWindow&gt; windows, MergingWindowAssigner.MergeCallback&lt;TimeWindow&gt; c) &#123;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Trigger"><a href="#Trigger" class="headerlink" title="Trigger"></a>Trigger</h2><p>触发器。决定了一个窗口何时能够被计算或清除，每个窗口都会拥有一个自己的Trigger。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Trigger&lt;T, W extends Window&gt; implements Serializable &#123;</span><br><span class="line">	</span><br><span class="line">	private static final long serialVersionUID &#x3D; -4104633972991191369L;</span><br><span class="line">	</span><br><span class="line">	public abstract TriggerResult onElement(T element, long timestamp, W window, TriggerContext ctx) throws Exception;</span><br><span class="line">	</span><br><span class="line">	public abstract TriggerResult onProcessingTime(long time, W window, TriggerContext ctx) throws Exception;</span><br><span class="line">	</span><br><span class="line">	public abstract TriggerResult onEventTime(long time, W window, TriggerContext ctx) throws Exception;</span><br><span class="line">	</span><br><span class="line">	public boolean canMerge() &#123;</span><br><span class="line">		return false;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public void onMerge(W window, OnMergeContext ctx) throws Exception &#123;</span><br><span class="line">		throw new UnsupportedOperationException(&quot;This trigger does not support merging.&quot;);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public abstract void clear(W window, TriggerContext ctx) throws Exception;</span><br><span class="line">	</span><br><span class="line">	public interface TriggerContext &#123;</span><br><span class="line">		long getCurrentProcessingTime();</span><br><span class="line">		MetricGroup getMetricGroup();</span><br><span class="line">		long getCurrentWatermark();</span><br><span class="line">		void registerProcessingTimeTimer(long time);</span><br><span class="line">		void registerEventTimeTimer(long time);</span><br><span class="line">		void deleteProcessingTimeTimer(long time);</span><br><span class="line">		void deleteEventTimeTimer(long time);</span><br><span class="line">		&lt;S extends State&gt; S getPartitionedState(StateDescriptor&lt;S, ?&gt; stateDescriptor);</span><br><span class="line">		@Deprecated</span><br><span class="line">		&lt;S extends Serializable&gt; ValueState&lt;S&gt; getKeyValueState(String name, Class&lt;S&gt; stateType, S defaultState);</span><br><span class="line">		@Deprecated</span><br><span class="line">		&lt;S extends Serializable&gt; ValueState&lt;S&gt; getKeyValueState(String name, TypeInformation&lt;S&gt; stateType, S defaultState);	</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public interface OnMergeContext extends TriggerContext &#123;</span><br><span class="line">		&lt;S extends MergingState&lt;?, ?&gt;&gt; void mergePartitionedState(StateDescriptor&lt;S, ?&gt; stateDescriptor);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当元素加入窗口时，onElement方法被调用，主要完成定时器的注册，当基于processing time的timer被触发后，onProcessingTime方法被调用，同样的，当基于event time的timer被触发后，onEventTime方法被调用。</p>
+<p>其实现类有以下几种：</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/7.jpg"></p>
+<p>常用的主要有CountTrigger、EventTimeTrigger、ProcessingTimeTrigger，下面分别看看这几个触发器。</p>
+<h3 id="CountTrigger"><a href="#CountTrigger" class="headerlink" title="CountTrigger"></a>CountTrigger</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line">public class CountTrigger&lt;W extends Window&gt; extends Trigger&lt;Object, W&gt; &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line">	</span><br><span class="line">	&#x2F;&#x2F; 当窗口中的元素&gt;&#x3D;maxCount时，窗口操作将被触发</span><br><span class="line">	private final long maxCount;</span><br><span class="line">	</span><br><span class="line">	&#x2F;&#x2F; 声明count的ReducingStateDescriptor，相当于一个分布式环境下的共享变量，主要记录当前窗口中元素的数量</span><br><span class="line">	private final ReducingStateDescriptor&lt;Long&gt; stateDesc &#x3D;</span><br><span class="line">			new ReducingStateDescriptor&lt;&gt;(&quot;count&quot;, new Sum(), LongSerializer.INSTANCE);</span><br><span class="line"></span><br><span class="line">	private CountTrigger(long maxCount) &#123;</span><br><span class="line">		this.maxCount &#x3D; maxCount;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public TriggerResult onElement(Object element, long timestamp, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">		&#x2F;&#x2F; 获取窗口中的元素的数量</span><br><span class="line">		ReducingState&lt;Long&gt; count &#x3D; ctx.getPartitionedState(stateDesc);</span><br><span class="line">		&#x2F;&#x2F; 执行+1操作</span><br><span class="line">		count.add(1L);</span><br><span class="line">		&#x2F;&#x2F; 若count值&gt;&#x3D;maxCount，则窗口执行fire操作，否则continue</span><br><span class="line">		if (count.get() &gt;&#x3D; maxCount) &#123;</span><br><span class="line">			count.clear();</span><br><span class="line">			return TriggerResult.FIRE;</span><br><span class="line">		&#125;</span><br><span class="line">		return TriggerResult.CONTINUE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public TriggerResult onEventTime(long time, W window, TriggerContext ctx) &#123;</span><br><span class="line">		return TriggerResult.CONTINUE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public TriggerResult onProcessingTime(long time, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">		return TriggerResult.CONTINUE;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public void clear(W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">		&#x2F;&#x2F; 清空共享变量</span><br><span class="line">		ctx.getPartitionedState(stateDesc).clear();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public boolean canMerge() &#123;</span><br><span class="line">		return true;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public void onMerge(W window, OnMergeContext ctx) throws Exception &#123;</span><br><span class="line">		&#x2F;&#x2F; 当发生窗口merge时，合并共享变量</span><br><span class="line">		ctx.mergePartitionedState(stateDesc);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public String toString() &#123;</span><br><span class="line">		return &quot;CountTrigger(&quot; +  maxCount + &quot;)&quot;;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	&#x2F;&#x2F; 提供of(long maxCount)方法返回CountTrigger的实例</span><br><span class="line">	public static &lt;W extends Window&gt; CountTrigger&lt;W&gt; of(long maxCount) &#123;</span><br><span class="line">		return new CountTrigger&lt;&gt;(maxCount);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	private static class Sum implements ReduceFunction&lt;Long&gt; &#123;</span><br><span class="line">		private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line"></span><br><span class="line">		@Override</span><br><span class="line">		public Long reduce(Long value1, Long value2) throws Exception &#123;</span><br><span class="line">			return value1 + value2;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="ProcessingTimeTrigger"><a href="#ProcessingTimeTrigger" class="headerlink" title="ProcessingTimeTrigger"></a>ProcessingTimeTrigger</h3><p>当processing time超过窗口的end值时，窗口将执行fire操作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public TriggerResult onElement(Object element, long timestamp, TimeWindow window, TriggerContext ctx) &#123;</span><br><span class="line">	&#x2F;&#x2F; 注册processing time的时钟，相当于定了个闹钟，闹钟时间为window.maxTimestamp()</span><br><span class="line">	ctx.registerProcessingTimeTimer(window.maxTimestamp());</span><br><span class="line">	return TriggerResult.CONTINUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onEventTime(long time, TimeWindow window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	&#x2F;&#x2F; 不做处理</span><br><span class="line">	return TriggerResult.CONTINUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onProcessingTime(long time, TimeWindow window, TriggerContext ctx) &#123;</span><br><span class="line">	&#x2F;&#x2F; 当闹钟定的时间到了，执行fire操作</span><br><span class="line">	return TriggerResult.FIRE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public void clear(TimeWindow window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	&#x2F;&#x2F; 清除时钟</span><br><span class="line">	ctx.deleteProcessingTimeTimer(window.maxTimestamp());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，onElement方法主要用于注册时钟，时钟时间到达后(onProcessingTime)，会触发窗口的fire操作。</p>
+<h3 id="EventTimeTrigger"><a href="#EventTimeTrigger" class="headerlink" title="EventTimeTrigger"></a>EventTimeTrigger</h3><p>EventTimeTrigger与ProcessingTimeTrigger类似：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public TriggerResult onElement(Object element, long timestamp, TimeWindow window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	if (window.maxTimestamp() &lt;&#x3D; ctx.getCurrentWatermark()) &#123;</span><br><span class="line">		&#x2F;&#x2F; if the watermark is already past the window fire immediately</span><br><span class="line">		return TriggerResult.FIRE;</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">		ctx.registerEventTimeTimer(window.maxTimestamp());</span><br><span class="line">		return TriggerResult.CONTINUE;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onEventTime(long time, TimeWindow window, TriggerContext ctx) &#123;</span><br><span class="line">	return time &#x3D;&#x3D; window.maxTimestamp() ?</span><br><span class="line">		TriggerResult.FIRE :</span><br><span class="line">		TriggerResult.CONTINUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onProcessingTime(long time, TimeWindow window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	return TriggerResult.CONTINUE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public void clear(TimeWindow window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	ctx.deleteEventTimeTimer(window.maxTimestamp());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>onElement方法会检查当前窗口的最大时间戳是否大于水印，若大于水印，则直接触发窗口的fire操作，若小于水印，则注册EventTime的时钟，当<strong>水印时间到达时钟设定值</strong>时，会触发窗口的fire操作。</p>
+<h3 id="DeltaTrigger"><a href="#DeltaTrigger" class="headerlink" title="DeltaTrigger"></a>DeltaTrigger</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public TriggerResult onElement(T element, long timestamp, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	&#x2F;&#x2F; 上一次窗口触发的时刻</span><br><span class="line">	ValueState&lt;T&gt; lastElementState &#x3D; ctx.getPartitionedState(stateDesc);</span><br><span class="line">	if (lastElementState.value() &#x3D;&#x3D; null) &#123;</span><br><span class="line">		&#x2F;&#x2F; 初始化</span><br><span class="line">		lastElementState.update(element);</span><br><span class="line">		return TriggerResult.CONTINUE;</span><br><span class="line">	&#125;</span><br><span class="line">	if (deltaFunction.getDelta(lastElementState.value(), element) &gt; this.threshold) &#123;</span><br><span class="line">		&#x2F;&#x2F; 若当前元素与lastElementState.value()的距离超过阈值，则触发窗口的fire计算，并将lastElementState.value()更新为当前元素的值</span><br><span class="line">		lastElementState.update(element);</span><br><span class="line">		return TriggerResult.FIRE;</span><br><span class="line">	&#125;</span><br><span class="line">	return TriggerResult.CONTINUE;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>最后，我们看一个很有用的Trigger工具类–PurgingTrigger。</p>
+<h3 id="PurgingTrigger"><a href="#PurgingTrigger" class="headerlink" title="PurgingTrigger"></a>PurgingTrigger</h3><p>首先看PurgingTrigger的构造器：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">private PurgingTrigger(Trigger&lt;T, W&gt; nestedTrigger) &#123;</span><br><span class="line">	this.nestedTrigger &#x3D; nestedTrigger;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>PurgingTrigger会将传入的nestedTrigger进行”二次处理”，当nestedTrigger执行fire操作时，PurgingTrigger会将其转换为fire+purge操作。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">@Override</span><br><span class="line">public TriggerResult onElement(T element, long timestamp, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	TriggerResult triggerResult &#x3D; nestedTrigger.onElement(element, timestamp, window, ctx);</span><br><span class="line">	return triggerResult.isFire() ? TriggerResult.FIRE_AND_PURGE : triggerResult;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onEventTime(long time, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	TriggerResult triggerResult &#x3D; nestedTrigger.onEventTime(time, window, ctx);</span><br><span class="line">	return triggerResult.isFire() ? TriggerResult.FIRE_AND_PURGE : triggerResult;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@Override</span><br><span class="line">public TriggerResult onProcessingTime(long time, W window, TriggerContext ctx) throws Exception &#123;</span><br><span class="line">	TriggerResult triggerResult &#x3D; nestedTrigger.onProcessingTime(time, window, ctx);</span><br><span class="line">	return triggerResult.isFire() ? TriggerResult.FIRE_AND_PURGE : triggerResult;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>典型的修饰器模式。</strong></p>
+<p>KeyedStream的countWindow(long size)直接应用了PurgingTrigger工具类。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public WindowedStream&lt;T, KEY, GlobalWindow&gt; countWindow(long size) &#123;</span><br><span class="line">	return window(GlobalWindows.create()).trigger(PurgingTrigger.of(CountTrigger.of(size)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Evictor"><a href="#Evictor" class="headerlink" title="Evictor"></a>Evictor</h2><p>可以译为“驱逐者”。在Trigger触发之后，在窗口被处理前/后，Evictor（如果有Evictor的话）会用来剔除窗口中不需要的元素，相当于一个filter。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public interface Evictor&lt;T, W extends Window&gt; extends Serializable &#123;</span><br><span class="line"></span><br><span class="line">	void evictBefore(Iterable&lt;TimestampedValue&lt;T&gt;&gt; elements, int size, W window, EvictorContext evictorContext);</span><br><span class="line"></span><br><span class="line">	void evictAfter(Iterable&lt;TimestampedValue&lt;T&gt;&gt; elements, int size, W window, EvictorContext evictorContext);</span><br><span class="line"></span><br><span class="line">	interface EvictorContext &#123;</span><br><span class="line">		</span><br><span class="line">		long getCurrentProcessingTime();</span><br><span class="line"></span><br><span class="line">		MetricGroup getMetricGroup();</span><br><span class="line"></span><br><span class="line">		long getCurrentWatermark();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其主要有如下实现类：</p>
+<p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/8.jpg"></p>
+<h3 id="CountEvictor"><a href="#CountEvictor" class="headerlink" title="CountEvictor"></a>CountEvictor</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line">public class CountEvictor&lt;W extends Window&gt; implements Evictor&lt;Object, W&gt; &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line">	</span><br><span class="line">	&#x2F;&#x2F; 窗口的最大元素数量</span><br><span class="line">	private final long maxCount;</span><br><span class="line">	&#x2F;&#x2F; 是否在计算后驱逐元素</span><br><span class="line">	private final boolean doEvictAfter;</span><br><span class="line"></span><br><span class="line">	private CountEvictor(long count, boolean doEvictAfter) &#123;</span><br><span class="line">		this.maxCount &#x3D; count;</span><br><span class="line">		this.doEvictAfter &#x3D; doEvictAfter;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	private CountEvictor(long count) &#123;</span><br><span class="line">		this.maxCount &#x3D; count;</span><br><span class="line">		&#x2F;&#x2F; 默认在计算前执行Evictor操作</span><br><span class="line">		this.doEvictAfter &#x3D; false;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public void evictBefore(Iterable&lt;TimestampedValue&lt;Object&gt;&gt; elements, int size, W window, EvictorContext ctx) &#123;</span><br><span class="line">		&#x2F;&#x2F; 若doEvictAfter为false</span><br><span class="line">		if (!doEvictAfter) &#123;</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public void evictAfter(Iterable&lt;TimestampedValue&lt;Object&gt;&gt; elements, int size, W window, EvictorContext ctx) &#123;</span><br><span class="line">		&#x2F;&#x2F; 若doEvictAfter为true</span><br><span class="line">		if (doEvictAfter) &#123;</span><br><span class="line">			evict(elements, size, ctx);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	private void evict(Iterable&lt;TimestampedValue&lt;Object&gt;&gt; elements, int size, EvictorContext ctx) &#123;</span><br><span class="line">		if (size &lt;&#x3D; maxCount) &#123;</span><br><span class="line">			return;</span><br><span class="line">		&#125; else &#123;</span><br><span class="line">			int evictedCount &#x3D; 0;</span><br><span class="line">			&#x2F;&#x2F; Iterator&lt;TimestampedValue&lt;Object&gt;&gt; iterator是按照元素到达时间排序的有序迭代器，第1个元素为时间最old的</span><br><span class="line">			for (Iterator&lt;TimestampedValue&lt;Object&gt;&gt; iterator &#x3D; elements.iterator(); iterator.hasNext();)&#123;</span><br><span class="line">				iterator.next();</span><br><span class="line">				evictedCount++;</span><br><span class="line">				if (evictedCount &gt; size - maxCount) &#123;</span><br><span class="line">					break;</span><br><span class="line">				&#125; else &#123;</span><br><span class="line">					&#x2F;&#x2F; 将多余的元素剔除</span><br><span class="line">					iterator.remove();</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	&#x2F;**</span><br><span class="line">	 * Creates a &#123;@code CountEvictor&#125; that keeps the given number of elements.</span><br><span class="line">	 * Eviction is done before the window function.</span><br><span class="line">	 *</span><br><span class="line">	 * @param maxCount The number of elements to keep in the pane.</span><br><span class="line">	 *&#x2F;</span><br><span class="line">	public static &lt;W extends Window&gt; CountEvictor&lt;W&gt; of(long maxCount) &#123;</span><br><span class="line">		return new CountEvictor&lt;&gt;(maxCount);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public static &lt;W extends Window&gt; CountEvictor&lt;W&gt; of(long maxCount, boolean doEvictAfter) &#123;</span><br><span class="line">		return new CountEvictor&lt;&gt;(maxCount, doEvictAfter);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>KeyedStream的countWindow(long size, long slide)方法应用CountEvictor实现了滑动窗口。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">public WindowedStream&lt;T, KEY, GlobalWindow&gt; countWindow(long size, long slide) &#123;</span><br><span class="line">	return window(GlobalWindows.create())</span><br><span class="line">			.evictor(CountEvictor.of(size))</span><br><span class="line">			.trigger(CountTrigger.of(slide));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="TimeEvictor"><a href="#TimeEvictor" class="headerlink" title="TimeEvictor"></a>TimeEvictor</h3><p>TimeEvictor与CountEvictor类似，TimeEvictor基于时间驱动，故其windowSize参数对应CountEvictor的maxCount，均表征窗口的大小，重点看一下evict方法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">private void evict(Iterable&lt;TimestampedValue&lt;Object&gt;&gt; elements, int size, EvictorContext ctx) &#123;</span><br><span class="line">	if (!hasTimestamp(elements)) &#123;</span><br><span class="line">		return;</span><br><span class="line">	&#125;</span><br><span class="line">	&#x2F;&#x2F; 获取所有元素时间戳的最大值</span><br><span class="line">	long currentTime &#x3D; getMaxTimestamp(elements);</span><br><span class="line">	&#x2F;&#x2F; 获取evict分割线</span><br><span class="line">	long evictCutoff &#x3D; currentTime - windowSize;</span><br><span class="line"></span><br><span class="line">	for (Iterator&lt;TimestampedValue&lt;Object&gt;&gt; iterator &#x3D; elements.iterator(); iterator.hasNext(); ) &#123;</span><br><span class="line">		TimestampedValue&lt;Object&gt; record &#x3D; iterator.next();</span><br><span class="line">		&#x2F;&#x2F; 若元素的时间戳不大于evict分割线，执行删除操作</span><br><span class="line">		if (record.getTimestamp() &lt;&#x3D; evictCutoff) &#123;</span><br><span class="line">			iterator.remove();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="DeltaEvictor"><a href="#DeltaEvictor" class="headerlink" title="DeltaEvictor"></a>DeltaEvictor</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">public class DeltaEvictor&lt;T, W extends Window&gt; implements Evictor&lt;T, W&gt; &#123;</span><br><span class="line">	private static final long serialVersionUID &#x3D; 1L;</span><br><span class="line">	&#x2F;&#x2F; 求两元素间距离的函数</span><br><span class="line">	DeltaFunction&lt;T&gt; deltaFunction;</span><br><span class="line">	&#x2F;&#x2F; 阈值</span><br><span class="line">	private double threshold;</span><br><span class="line">	private final boolean doEvictAfter;</span><br><span class="line">	</span><br><span class="line">	......</span><br><span class="line">	</span><br><span class="line">	private void evict(Iterable&lt;TimestampedValue&lt;T&gt;&gt; elements, int size, EvictorContext ctx) &#123;</span><br><span class="line">		&#x2F;&#x2F; 获取最新的元素</span><br><span class="line">		TimestampedValue&lt;T&gt; lastElement &#x3D; Iterables.getLast(elements);</span><br><span class="line">		for (Iterator&lt;TimestampedValue&lt;T&gt;&gt; iterator &#x3D; elements.iterator(); iterator.hasNext();)&#123;</span><br><span class="line">			TimestampedValue&lt;T&gt; element &#x3D; iterator.next();</span><br><span class="line">			&#x2F;&#x2F; 若当前元素与最新元素之间的距离超过阈值，则删除该元素</span><br><span class="line">			if (deltaFunction.getDelta(element.getValue(), lastElement.getValue()) &gt;&#x3D; this.threshold) &#123;</span><br><span class="line">				iterator.remove();</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">		</span><br><span class="line">	......</span><br><span class="line">	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>由上述代码易知，基于DeltaEvictor可以实现CountEvictor和TimeEvictor，只要实现各自的DeltaFunction即可，所以DeltaEvictor更具有一般性。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/flink/" rel="tag"># flink</a>
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/" rel="prev" title="《Nginx系列》2.Nginx安装">
+      <i class="fa fa-chevron-left"></i> 《Nginx系列》2.Nginx安装
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/" rel="next" title="Flink优化:任务中cpu负载过高">
+      Flink优化:任务中cpu负载过高 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">Flink的Window源码剖析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Window"><span class="nav-number">1.1.</span> <span class="nav-text">Window</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#TimeWindow"><span class="nav-number">1.1.1.</span> <span class="nav-text">TimeWindow</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GlobalWindow"><span class="nav-number">1.1.2.</span> <span class="nav-text">GlobalWindow</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#WindowAssigner"><span class="nav-number">1.2.</span> <span class="nav-text">WindowAssigner</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#GlobalWindows"><span class="nav-number">1.2.1.</span> <span class="nav-text">GlobalWindows</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TumblingProcessingTimeWindows%E5%92%8CTumblingEventTimeWindows"><span class="nav-number">1.2.2.</span> <span class="nav-text">TumblingProcessingTimeWindows和TumblingEventTimeWindows</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SlidingProcessingTimeWindows%E5%92%8CSlidingEventTimeWindows"><span class="nav-number">1.2.3.</span> <span class="nav-text">SlidingProcessingTimeWindows和SlidingEventTimeWindows</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MergingWindowAssigner"><span class="nav-number">1.2.4.</span> <span class="nav-text">MergingWindowAssigner</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Trigger"><span class="nav-number">1.3.</span> <span class="nav-text">Trigger</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CountTrigger"><span class="nav-number">1.3.1.</span> <span class="nav-text">CountTrigger</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ProcessingTimeTrigger"><span class="nav-number">1.3.2.</span> <span class="nav-text">ProcessingTimeTrigger</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#EventTimeTrigger"><span class="nav-number">1.3.3.</span> <span class="nav-text">EventTimeTrigger</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DeltaTrigger"><span class="nav-number">1.3.4.</span> <span class="nav-text">DeltaTrigger</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#PurgingTrigger"><span class="nav-number">1.3.5.</span> <span class="nav-text">PurgingTrigger</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Evictor"><span class="nav-number">1.4.</span> <span class="nav-text">Evictor</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#CountEvictor"><span class="nav-number">1.4.1.</span> <span class="nav-text">CountEvictor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#TimeEvictor"><span class="nav-number">1.4.2.</span> <span class="nav-text">TimeEvictor</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DeltaEvictor"><span class="nav-number">1.4.3.</span> <span class="nav-text">DeltaEvictor</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

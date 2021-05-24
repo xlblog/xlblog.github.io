@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="概述spark提供了一个抽象的数据集：弹性分布式数据集(RDD)。这是一个多集群数据集合，意味着它可以并行操作，每个节点操作自己所拥有的元素，所有节点的并行操作就是RDD的一个算子。RDD可以从Hadoop文件系统创建(任何Hadoop能支持的文件系统，例如HDFS、HBase等)，也可以从Driver端已有的一个集合转换而来。用户可以将RDD缓存在集群的内存中，以便该RDD可以被重复使用。除了R">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark之一:RDD编程指南">
+<meta property="og:url" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="概述spark提供了一个抽象的数据集：弹性分布式数据集(RDD)。这是一个多集群数据集合，意味着它可以并行操作，每个节点操作自己所拥有的元素，所有节点的并行操作就是RDD的一个算子。RDD可以从Hadoop文件系统创建(任何Hadoop能支持的文件系统，例如HDFS、HBase等)，也可以从Driver端已有的一个集合转换而来。用户可以将RDD缓存在集群的内存中，以便该RDD可以被重复使用。除了R">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835155.jpg">
+<meta property="og:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835258.jpg">
+<meta property="og:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835792(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609836116(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609836485(1).jpg">
+<meta property="article:published_time" content="2021-01-05T07:34:31.000Z">
+<meta property="article:modified_time" content="2021-01-06T05:36:59.049Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="spark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835155.jpg">
+
+<link rel="canonical" href="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Spark之一:RDD编程指南 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Spark之一:RDD编程指南
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-01-05 15:34:31" itemprop="dateCreated datePublished" datetime="2021-01-05T15:34:31+08:00">2021-01-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-01-06 13:36:59" itemprop="dateModified" datetime="2021-01-06T13:36:59+08:00">2021-01-06</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>spark提供了一个抽象的数据集：弹性分布式数据集(RDD)。这是一个多集群数据集合，意味着它可以并行操作，每个节点操作自己所拥有的元素，所有节点的并行操作就是RDD的一个算子。<br>RDD可以从Hadoop文件系统创建(任何Hadoop能支持的文件系统，例如HDFS、HBase等)，也可以从Driver端已有的一个集合转换而来。<br>用户可以将RDD缓存在集群的内存中，以便该RDD可以被重复使用。<br>除了RDD，spark还提供了 另一个抽象概念：共享变量。spark程序在集群的多节点上运行时，每个task任务都会拷贝一份共享变量。spark支持两种类型的共享变量，分别是:广播变量(broadcast)和累加器(accumulators)。<br>下面便详细介绍rdd、broadcast 和accumulators。</p>
+<a id="more"></a>
+
+<h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><p>spark可以在多种环境上运行任务。在本地环境和集群环境上运行时，我们需要手动来初始化spark环境。</p>
+<h3 id="初始化"><a href="#初始化" class="headerlink" title="初始化"></a>初始化</h3><p>spark初始化前，需要先添加spark的依赖：spark-core。spark2.4.4版本必须要使用scala2.12版本。所以，如果你使用的scala版本是2.12以下的，请依赖spark2.4.4以下的版本。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apache.spark&lt;/ groupId</span><br><span class="line">	<span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spark-core_2.11<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>2.2.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>添加好依赖后，我们来创建spark context。sparkcontext是spark的上下文，spark程序运行必须要通过上下文来运行，因为sparkcontext中指明了spark如何来运行。sparkcontext有一个必要的参数是：SparkConf。该参数就是用来制定所运行的环境。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]): <span class="type">Unit</span> = &#123;</span><br><span class="line">	<span class="keyword">val</span> conf = <span class="keyword">new</span> <span class="type">SparkConf</span>()</span><br><span class="line">		.setAppName(<span class="string">&quot;CoreDemo&quot;</span>)</span><br><span class="line">		.setMaster(<span class="string">&quot;local[*]&quot;</span>)</span><br><span class="line">	<span class="keyword">val</span> sparkContext = <span class="keyword">new</span> <span class="type">SparkContext</span>(conf)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>SparkConf中提供了很多参数可以进行设置，我们可以将这些设置硬编码到程序中，也可以在使用spark-submit时动态指定。期中：appName是Spark-UI上展示的名称，用来快速找到对应的运行任务，master是用来指定运行的环境。可以是spark集群，可以是yarn集群，如果使用local则表示本地环境。</p>
+<p><strong>重点：每个JVM只能启动一个sparkcontext，如果启动多个sparkcontext必须要先停止已经启动的context。<br>ps：spark-sql提供了SparkSession，我们可以从SparkSession中来实例化SparkContext，应尽量废弃new的方式。</strong></p>
+<h3 id="使用spark-shell"><a href="#使用spark-shell" class="headerlink" title="使用spark-shell"></a>使用spark-shell</h3><p>spark-shell是一个很重要的工具，我们在实际开发中，如果需要调试，则使用spark-shell，是一个很方便的工具。</p>
+<p>可以使用spark-shell -h来查看spark-shell命令需要传递哪些参数。我们捡一些比较重要的参数来说明：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>–master</td>
+<td>指定spark-shell运行的环境。工作中，常用的一般为：yarn或local</td>
+</tr>
+<tr>
+<td>–deploy-mode</td>
+<td>部署模式，默认是client，可选：cluster。区别是一旦关闭连接，client模式对应的任务也会被关闭，而cluster对应的任务始终会被保留。</td>
+</tr>
+<tr>
+<td>–name</td>
+<td>给这个spark-shell取一个自己的名字，用来区分是谁启的</td>
+</tr>
+<tr>
+<td>–jars</td>
+<td>spark环境额外依赖的jar文件，如果你的程序需要依赖第三方jar，可以通过该参数传递过来，这样在spark-shell就能正常依赖了。多个jar用逗号分隔。</td>
+</tr>
+<tr>
+<td>–driver-memory</td>
+<td>driver端内存，默认1G</td>
+</tr>
+<tr>
+<td>–executor-memory</td>
+<td>execute端内存，默认1G</td>
+</tr>
+<tr>
+<td>–queue</td>
+<td>yarn模式专用，指定yarn上的一个队列，默认default</td>
+</tr>
+<tr>
+<td>–conf</td>
+<td>设置一些其他参数。以key=value的形式设置</td>
+</tr>
+</tbody></table>
+<p>下面是我们实际工作中使用到的开启一个spark-shell的命令：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">spark-shell --master yarn \</span><br><span class="line">--queue xy_yarn_pool.development \</span><br><span class="line">--driver-memory 2G \</span><br><span class="line">--executor-memory 2G \</span><br><span class="line">--num-executors 10 \</span><br><span class="line">--executor-cores 2 \</span><br><span class="line">--jars xxx</span><br></pre></td></tr></table></figure>
+<p>spark-shell默认已经给我们创建了SparkContext对象，变量名是sc。如果你再在spark-shell中创建sc，则不会有效。<br>接下来我们就用spark-shell来学习spark的抽象概念：RDD</p>
+<h2 id="弹性分布式数据集"><a href="#弹性分布式数据集" class="headerlink" title="弹性分布式数据集"></a>弹性分布式数据集</h2><p>上面已经介绍了，spark的程序都是围绕RDD进行。</p>
+<h3 id="创建RDD"><a href="#创建RDD" class="headerlink" title="创建RDD"></a>创建RDD</h3><h4 id="从已有数据集转换"><a href="#从已有数据集转换" class="headerlink" title="从已有数据集转换"></a>从已有数据集转换</h4><p>sparkContext提供了一个方法：<code>parallelize</code>，该方法可以将Driver已有的集合转换为分布式集合（RDD）。</p>
+<p><img src="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835155.jpg"></p>
+<p>可以看到，变量res1是定义在Driver的一个Array数组，它是实际存储在Driver中。res2是我们从res1转换而来的，它的类型是一个RDD。它被分发到集群中的每个节点上，也就是每个节点保存着一部分元素，所有节点合并后就是Driver端的一个Array集合。</p>
+<h4 id="从文件系统读取"><a href="#从文件系统读取" class="headerlink" title="从文件系统读取"></a>从文件系统读取</h4><p>在读文件时，我们先在本地创建一个文本文件，里面存储一些单词。</p>
+<p>sparkContext提供了另外一个方法：<code>textFile</code>，该方法可以从文件系统中读取文件中的内容。</p>
+<p><img src="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835258.jpg"></p>
+<p>如果是本地文件，则使用：file://，如果是HDFS，则使用：hdfs://</p>
+<p>有一些细节需要注意：</p>
+<ul>
+<li>如果读取的是本地文件，该文件必须要被分享到每个节点上，否则集群环境下，有一部分节点是无法读取到，会报FileNotFoundException。</li>
+<li>spark读取文件，只要文件是文本形式，可以是目录、压缩文件、通配符文件。例如：textFile（/home/file）或textFile（/home/file.gz）或textFile（/home/*.txt）</li>
+<li>可以手动指定需要几个分区来读取这些文件</li>
+</ul>
+<h3 id="RDD操作"><a href="#RDD操作" class="headerlink" title="RDD操作"></a>RDD操作</h3><h4 id="RDD操作介绍"><a href="#RDD操作介绍" class="headerlink" title="RDD操作介绍"></a>RDD操作介绍</h4><p>每个java对象都有方法，RDD也不例外，它作为一个对象，也提供了许多方法，只不过我们把它们叫做算子。通常我们可以把这些算子分为两类：transformation和action。transformation算子是用来做转换的，从一个数据集转换为另一个数据集，action是用来做输出的，将结果返回给Driver端。</p>
+<p>transformation算子是一种延迟算子，在RDD上调用了它，不会立即执行计算，而是会记住，在该数据集上，会有一个transformation算子需要执行。真正触发计算的是在action算子中。也就是说，你定义一系列计算过程后，只有在真正需要的时候，才开始进行计算，你只定义但不需要，则该系列永远不会被计算到。这样设计使得spark程序执行更有效率。试想一下，如果每个算子都触发一次计算，100个节点，每个节点的数据大小可能不同，计算速度有快有慢，每个算子计算一次，都需要全部节点计算完成之后才能进行下一个算子的计算。这样严重的浪费了计算效率，使那些提前计算完毕的节点处于等待状态。而设计成这种形式后，每个节点的数据集只需要按序从头计算到尾即可，大大降低了等待过程，更使得那些定义了但不用的算子不被计算到，充分提高了spark的整体计算效率。</p>
+<p><strong>(ps:重点，spark程序比MapReduce快的原因之一)</strong></p>
+<p>默认情况下，如果你计算多个结果，即使它们的一部分计算方式是一样的，每次计算也需要从头算到尾。这样会有重复计算的过程，其实这部分计算过程，我们是可以省下来的，即我们把这部分计算结果进行缓存，下次计算时，直接在缓存的基础上去计算，避免了重复计算。</p>
+<p>为了更好的理解上述概念，我们用一个简单的程序来说明：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]): <span class="type">Unit</span> = &#123;</span><br><span class="line">    <span class="comment">//1. spark环境准备</span></span><br><span class="line">    <span class="keyword">val</span> conf = <span class="keyword">new</span> <span class="type">SparkConf</span>()</span><br><span class="line">        .setAppName (<span class="string">&quot;CoreDemo&quot;</span>)</span><br><span class="line">        .setMaster (<span class="string">&quot;local[*]&quot;</span>)</span><br><span class="line">    <span class="keyword">val</span> sparkContext = <span class="keyword">new</span> <span class="type">SparkContext</span> (conf)</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//2.读某一文件</span></span><br><span class="line">    <span class="keyword">val</span> lines: <span class="type">RDD</span>[<span class="type">String</span>] = sparkContext.textEile(<span class="string">&quot;file:///home/xy_app_spark/lizy/1ogs/spark_core_demo.txt&quot;</span>)</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//3.进行转换</span></span><br><span class="line">    <span class="keyword">val</span> lineWordCnts: <span class="type">RDD</span>[<span class="type">Int</span>] = lines.map(line =&gt; line.split(<span class="string">&quot; &quot;</span>)<span class="number">.1</span>ength)</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//4.聚合计算</span></span><br><span class="line">    <span class="keyword">val</span> totalWordCnt: <span class="type">Int</span> = lineWordCnts.reduce((tl, t2) =&gt; t1 + t2)</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//5 .输出结果</span></span><br><span class="line">    printIn(<span class="string">s&quot;-共&#123;stotalWordCnt&#125;个单词&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们描述一下整个流程：</p>
+<p><img src="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609835792(1).jpg"></p>
+<p>从这个流程图我们可以清晰的看到，在transformation算子中，只定义而不实际执行，一旦遇到action算子，则立即执行。前面的这个定义过程，在spark中被称作：构建DAG(有向无环图)。</p>
+<p>ps：我们在spark-shell中，可以边写边构建DAG，直到遇到action则立即执行。而在实际开发中，我们会先写好程序，然后通过spark-submit进行提交，提交后，spark会先分析我们的程序构建DAG，接着才根据已经构建的DAG触发执行。</p>
+<h4 id="RDD函数传递"><a href="#RDD函数传递" class="headerlink" title="RDD函数传递"></a>RDD函数传递</h4><p>我们通过上面的简单程序可以看到，在RDD的算子中，每个算子都需要传递一个函数。传递函数有两种方式：</p>
+<ol>
+<li>匿名函数</li>
+<li>外部函数</li>
+</ol>
+<p>上面的写法就是定义了一个匿名函数。匿名函数一般用在比较简短或局部地方使用。</p>
+<p>外部函数的传递方式如下：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">object</span> <span class="title">Function0bj</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">myFunction</span></span>(value: <span class="type">String</span>): <span class="type">Int</span> = &#123;</span><br><span class="line">        value.split(<span class="string">&quot; &quot;</span>) <span class="number">.1</span>ength</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">testPunction</span></span>(): <span class="type">Unit</span> =&#123;</span><br><span class="line">        <span class="comment">//...</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">val</span> lineWordCnts: <span class="type">RDD</span>[<span class="type">Int</span>] = lines.map(<span class="type">FunctionObj</span>.myFunction)   <span class="comment">// 外部函数</span></span><br></pre></td></tr></table></figure>
+<p>外部函数一般用于一些公用方法，一些比较复杂的方法。</p>
+<p>spark程序在执行过程中，需要将依赖的代码全部拷贝一份发送到执行任务的节点上。也就意味着，如果你的一个外部类很大，但是在你的程序中只用到了一个小方法，为了在集群上执行这个依赖方法，需要将整个FunctionObj发送到集群，将会存在网络传输的情况。为了避免这个问题，我们可以通过这种形式来写：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> myFunction = <span class="type">FunctionObj</span>.myFunction _</span><br><span class="line"><span class="keyword">val</span> lineWordCnts: <span class="type">RDD</span>[<span class="type">Int</span>] = lines.map(myFunction)</span><br></pre></td></tr></table></figure>
+<p>你可能认为这两种方法没啥区别呀？其实是有区别的。我们必须要分清楚，Driver端执行的代码和Executor执行的代码分别是哪部分。我们知道，RDD的每个算子都需要传递一个函数，那么，非传递在RDD中的函数，在Driver中执行，而传递在RDD的函数，需要分发到集群上执行。</p>
+<p>理解了这个，我们再来看两种方式的区别：</p>
+<ul>
+<li>第一种，传递了FunctionObj.myFunction，要在集群中执行myFunction，必须要把FunctionObj传递过去方可执行</li>
+<li>第二种，传递的是一个拷贝function，而FunctionObj.myFunction是在Driver端中执行的，无需将FunctionObj对象复制，大大节省了网络传输</li>
+</ul>
+<h4 id="了解闭包"><a href="#了解闭包" class="headerlink" title="了解闭包"></a>了解闭包</h4><p>闭包是一个比较重要的概念，了解了它，我们在进行编码的时候才能写出更高效的代码。</p>
+<p>所谓的闭包，其实就是一些变量和方法的生命周期。如果混淆，则会出现意想不到的bug，却无从找起。</p>
+<p>举个例子：</p>
+<p><img src="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609836116(1).jpg"></p>
+<p>这个程序可能会达不到预期想要的效果。spark任务的执行，是将相同的执行操作分发到多个节点一起执行，所以它在执行前，需要先计算出哪部分需要进行分发，需要分发的这部分（方法、变量），也就是它们的闭包范围。</p>
+<p>前面我们提到，哪部分在Driver执行，哪部分在集群上执行。我们可以根据前面讲到的知识得出，foreach中的sum是从Driver端中的sum拷贝而来，每个task都拥有自己的拷贝，它们之间是独立互不影响的。所以可以得出，标记1、3是Driver端的，它们是一个sum。而标记2是executor端的，它们是多个sum。所以最终我们可以得出这个程序的结果是0而非我们期望的16。</p>
+<p>如果要在driver和executor共享一个变量，且允许executor更新这个变量，则应该使用累加器。累加器在后面我们再详细介绍。</p>
+<p>ps：如果你还不了解什么是driver，什么是executor，只要先记住driver是任务提交的机器，executor是任务执行的机器即可。后面在介绍spark运行机制是，会详细介绍。 </p>
+<p>除了上面的这个示例外，还有一个需要注意的就是打印结果，虽然很少使用，但是在调试代码中，可能会有用到。</p>
+<p>例如：rdd.foreach(print)</p>
+<p>执行该方法可能在你的driver看不到输出结果，因为它们是在executor中被输出了。</p>
+<h4 id="spark常用算子介绍"><a href="#spark常用算子介绍" class="headerlink" title="spark常用算子介绍"></a>spark常用算子介绍</h4><p>下面是spark提供的一些重要的算子及它们的作用。</p>
+<p>transformation：</p>
+<table>
+<thead>
+<tr>
+<th>算子</th>
+<th>介绍</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>map(func)</td>
+<td>转换为一个新的RDD</td>
+</tr>
+<tr>
+<td>filter(func)</td>
+<td>过滤不需要的数据集，函数中定义的是要保留的规则</td>
+</tr>
+<tr>
+<td>flatMap(func)</td>
+<td>将func中的一个集合进行压扁后转换为一个新的RDD</td>
+</tr>
+<tr>
+<td>mapPartitions(func)</td>
+<td>和map类似，区别在于map每次操作一条数据，mapPartitions每次可以操作一个分区中的数据</td>
+</tr>
+<tr>
+<td>mapPartitionsWithIndex(func)</td>
+<td>类似于mapPartitions，只是多了该分区的索引值。(一般用不着)</td>
+</tr>
+<tr>
+<td>sample(withReplacement, fraction, seed)</td>
+<td>样本数据，进行抽样，一般不用。</td>
+</tr>
+<tr>
+<td>union(otherDataset)</td>
+<td>合并另一个数据集</td>
+</tr>
+<tr>
+<td>intersection(otherDataset)</td>
+<td>取两个数据集的交集</td>
+</tr>
+<tr>
+<td>distinct([numPartitions])</td>
+<td>去重，numPartitions可选</td>
+</tr>
+<tr>
+<td>groupByKey([numPartitions])</td>
+<td>根据key进行分组，一般用于元组</td>
+</tr>
+<tr>
+<td>reduceByKey(func, [numPartitions])</td>
+<td>根据key进行聚合，func定义聚合规则</td>
+</tr>
+<tr>
+<td>sortByKey([ascending], [numPartitions])</td>
+<td>根据key进行排序</td>
+</tr>
+<tr>
+<td>aggregateByKey(zeroValue)(seqOp, combOp, [numPartitions])</td>
+<td>也是聚合操作，和reduceByKey不同点在于，每个分区的聚合和分区间的聚合可以不同</td>
+</tr>
+<tr>
+<td>join(otherDataset, [numPartitions])</td>
+<td>一般用于元组，连接两个相同key的数据</td>
+</tr>
+<tr>
+<td>cogroup(otherDataset, [numPartitions])</td>
+<td>也是分组，和groupByKey不同点在于，gogroup只在单个数据集上进行合并，最后输出一个元组。(key, (group1, group2))</td>
+</tr>
+<tr>
+<td>repartition(numPartitions)</td>
+<td>重新定义分区数量</td>
+</tr>
+</tbody></table>
+<p>action：</p>
+<table>
+<thead>
+<tr>
+<th>算子</th>
+<th>介绍</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>reduce(func)</td>
+<td>聚合</td>
+</tr>
+<tr>
+<td>collect()</td>
+<td>将executor端的数据收集在driver端。(慎用)</td>
+</tr>
+<tr>
+<td>count()</td>
+<td>统计数量</td>
+</tr>
+<tr>
+<td>first()</td>
+<td>取第一个</td>
+</tr>
+<tr>
+<td>take(n)</td>
+<td>取前n个</td>
+</tr>
+<tr>
+<td>takeSample(withReplacement, num, [seed])</td>
+<td>取n个样本</td>
+</tr>
+<tr>
+<td>takeOrdered(n, [ordering])</td>
+<td>排序后取n个</td>
+</tr>
+<tr>
+<td>saveAsTextFile(path)</td>
+<td>将数据保存在某个文件</td>
+</tr>
+<tr>
+<td>saveAsSequenceFile(path)</td>
+<td>以sequence的形式保存</td>
+</tr>
+<tr>
+<td>saveAsObjectFile(path)</td>
+<td>以object的形式保存</td>
+</tr>
+<tr>
+<td>countByKey()</td>
+<td>根据key进行统计数量</td>
+</tr>
+<tr>
+<td>foreach(func)</td>
+<td>遍历</td>
+</tr>
+</tbody></table>
+<h3 id="RDD深入"><a href="#RDD深入" class="headerlink" title="RDD深入"></a>RDD深入</h3><h4 id="shuffer操作"><a href="#shuffer操作" class="headerlink" title="shuffer操作"></a>shuffer操作</h4><p>在spark的某些操作中可能会触发shuffer动作，shuffer并不是某一个算子，而是数据重新进行分配的动作，有很多算子能触发shuffer，比如groupByKey、reduceByKey……</p>
+<p>为了说明shuffer背后的动作，我们以groupByKey为例来说明。</p>
+<p><img src="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609836485(1).jpg"></p>
+<p>面这张图就是groupByKey的数据实际shuffer的过程。一开始有3个分区，通过key聚合后，相同的key被放在同一个分区中，最终变为两个分区（shuffer后的分区个数可以人为的指定）。<br>我们可以看到，每个分区中的数据都可能会被移动到其他分区。shuffer动作其实就是数据重新分配的一个过程。<br>shuffer是一个比较昂贵的动作，因为在重新分配数据的过程中，会涉及到磁盘I/O、网络I/O、数据序列化、反序列化。这一系列的动作会造成spark程序执行缓慢。<br>理解了shuffer动作，我们再了解一下spark底层是如何来完成这个动作的。spark借鉴了MapReduce的思路，在准备shuffer时，spark启动了两类任务(task)，分别是Map任务和Reduce任务。如果熟悉MapReduce，我想应该很好理解这句话。Map阶段，是针对每个分区种的数据先根据Key进行分组，将分组后的结果保存在内存中，如果内存满了则向本地磁盘写（写入一个文件，该文件是根据key做了排序的），直到所有的分区分组全部结束。Map阶段完成后，Reduce阶段开启，Reduce阶段主要是负责将分区之间的数据，根据Key进行聚合，最终将分布在多个分区中的某个key聚合在一个分区。<br>ps：spark比MapReduce快的原因二<br>我们知道了shuffer的机制后，就应该知道，在向内存写数据后，shuffer结束需要一个垃圾回收动作，在向磁盘写数据时，会有一个磁盘I/O动作。这将是我们后期优化spark任务的一个重要依据。</p>
+<h4 id="数据缓存"><a href="#数据缓存" class="headerlink" title="数据缓存"></a>数据缓存</h4><p>数据缓存是一个非常有用的机制，试想一下，你从一个原始数据经过一系列计算后，要输出两种结果，每输出一种结果都需要从头计算一遍，输出十种、一百种，这种重复的计算就是一个浪费。spark提供了缓存机制，我们就可以把这些重复计算的结果值进行缓存，输出其他结果时，在该缓存的基础上去输出，大大降低了重复计算，提高了spark任务执行效率。<br><strong>ps：spark比MapReduce快的原因三</strong><br>对数据进行缓存，可以调用.cache算子，也可以调用.persist算子。<br>cache是将数据缓存在内存中，如果内存不够，则会有内存溢出的情况而导致任务停止。<br>persist是一种更灵活的缓存方式，可以由用户来定义缓存级别。spark提供的缓存级别有：</p>
+<table>
+<thead>
+<tr>
+<th>缓存级别</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>memory_only</td>
+<td>仅仅缓存在内存中。cache内部就调用的该方式</td>
+</tr>
+<tr>
+<td>memory_and_disk</td>
+<td>先在内存中缓存，内存不够了缓存至硬盘</td>
+</tr>
+<tr>
+<td>disk_only</td>
+<td>只缓存在硬盘</td>
+</tr>
+<tr>
+<td>xxx_2</td>
+<td>其他的后面带2的，和上面的缓存机制一样，不同点在于它将会缓存两份数据</td>
+</tr>
+</tbody></table>
+<p>spark提供了这么多的缓存级别，主要的目的是让我们在内存的使用和cpu效率之间进行衡量，那么我们该如何来选一个合适的缓存级别呢？有以下参考点可以来参考：</p>
+<ul>
+<li>内存空间比较大，单个分区中的数据完全可以放入内存中，可以选择memory_only，因为即使你不用，多余的内存也会被浪费</li>
+<li>如果单个分区的数据量比内存大，可以选择memory_and_disk</li>
+<li>如果计算比较简单，则不需要进行缓存。例如读到数据后只做了一个map转换，重复计算的时间都比缓存下后再读要快</li>
+</ul>
+<p>在使用完成后如不再使用，调用unpersist来释放缓存。如果不写，spark程序也会定期的去清理一些无引用的缓存。</p>
+<h3 id="共享变量"><a href="#共享变量" class="headerlink" title="共享变量"></a>共享变量</h3><p>一般情况下，当spark程序在集群上运行时，传递给RDD的函数中的变量，是变量的一个副本。每个节点上的变量都是独立互不影响的。这些变量是从Driver端拷贝到Executor端，并且Executor端的变量并不会回传到Driver端。</p>
+<p>如果要在Driver端和Executor共享一个变量，spark给我们提供了两种类型的变量，分别是广播变量和累加器。</p>
+<h4 id="广播变量"><a href="#广播变量" class="headerlink" title="广播变量"></a>广播变量</h4><p>广播变量的作用是将一个只读的变量缓存在每个节点上，而不是给任务一个副本。如何理解它们的区别呢。</p>
+<p>一个JVM可以运行很多个任务，任务和任务之间的变量是独立的，也就是说，它们的副本是多个。而如果在JVM里面缓存一个静态变量，多个任务是可以共用这个静态变量的。这儿的广播变量就相当于在每个节点的JVM里面缓存了一个静态变量，每一个运行的任务都可以拿来使用。而将变量传递在方法中，是给了每一个任务一个副本，一个JVM里面会有多个副本。</p>
+<p>下面是广播变量的使用方式：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> array = <span class="type">Array</span>[<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>]</span><br><span class="line"><span class="keyword">val</span> broadcastArray = sparkContext.broadcast(array)</span><br><span class="line"><span class="keyword">val</span> useArray = broadcastArray.value</span><br></pre></td></tr></table></figure>
+<p>第一行是定义一个变量，第二行是将该变量广播出去，第三行是在executor使用该变量。</p>
+<p>注意：</p>
+<ul>
+<li>广播变量必须是只读的</li>
+<li>广播变量不适合广播比较大的数据集，适合广播较小的</li>
+</ul>
+<p>广播变量不能被更新，主要是在集群环境下很难去更新，因为集群是并发工作的，为了保证数据一致性，必须要对该变量做特殊处理：比如放在mysql，用mysql的锁保证数据一致性。但是如此操作会造成spark性能很差，因此，广播变量是只读的，无法更新。</p>
+<p>广播变量只广播小数据，主要是因为在广播过程中会涉及到对数据的序列化、反序列化、数据传输。如果广播变量比较大，那么传送过程将会很慢很慢，也不适合进行广播。</p>
+<h4 id="累加器"><a href="#累加器" class="headerlink" title="累加器"></a>累加器</h4><p>累加器是一个仅用来做added操作的变量。它一般用于计数、统计sum。在spark离线处理下，几乎用不着。在流失处理中可以使用，因为流处理是一个无限数据集，每次都是提交一小批数据，累加器可以用来累加这一小批。一般流处理目前用的比较多的是flink，flink有状态管理，因此累加器这儿不做详细的介绍了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/spark/" rel="tag"># spark</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/" rel="next" title="Spark之二:SQL编程指南">
+      Spark之二:SQL编程指南 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="nav-number">2.</span> <span class="nav-text">环境准备</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">2.1.</span> <span class="nav-text">初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8spark-shell"><span class="nav-number">2.2.</span> <span class="nav-text">使用spark-shell</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%B9%E6%80%A7%E5%88%86%E5%B8%83%E5%BC%8F%E6%95%B0%E6%8D%AE%E9%9B%86"><span class="nav-number">3.</span> <span class="nav-text">弹性分布式数据集</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BARDD"><span class="nav-number">3.1.</span> <span class="nav-text">创建RDD</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BB%8E%E5%B7%B2%E6%9C%89%E6%95%B0%E6%8D%AE%E9%9B%86%E8%BD%AC%E6%8D%A2"><span class="nav-number">3.1.1.</span> <span class="nav-text">从已有数据集转换</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BB%8E%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E8%AF%BB%E5%8F%96"><span class="nav-number">3.1.2.</span> <span class="nav-text">从文件系统读取</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD%E6%93%8D%E4%BD%9C"><span class="nav-number">3.2.</span> <span class="nav-text">RDD操作</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#RDD%E6%93%8D%E4%BD%9C%E4%BB%8B%E7%BB%8D"><span class="nav-number">3.2.1.</span> <span class="nav-text">RDD操作介绍</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#RDD%E5%87%BD%E6%95%B0%E4%BC%A0%E9%80%92"><span class="nav-number">3.2.2.</span> <span class="nav-text">RDD函数传递</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%86%E8%A7%A3%E9%97%AD%E5%8C%85"><span class="nav-number">3.2.3.</span> <span class="nav-text">了解闭包</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#spark%E5%B8%B8%E7%94%A8%E7%AE%97%E5%AD%90%E4%BB%8B%E7%BB%8D"><span class="nav-number">3.2.4.</span> <span class="nav-text">spark常用算子介绍</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD%E6%B7%B1%E5%85%A5"><span class="nav-number">3.3.</span> <span class="nav-text">RDD深入</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#shuffer%E6%93%8D%E4%BD%9C"><span class="nav-number">3.3.1.</span> <span class="nav-text">shuffer操作</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E7%BC%93%E5%AD%98"><span class="nav-number">3.3.2.</span> <span class="nav-text">数据缓存</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%8F%98%E9%87%8F"><span class="nav-number">3.4.</span> <span class="nav-text">共享变量</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%B9%BF%E6%92%AD%E5%8F%98%E9%87%8F"><span class="nav-number">3.4.1.</span> <span class="nav-text">广播变量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%B4%AF%E5%8A%A0%E5%99%A8"><span class="nav-number">3.4.2.</span> <span class="nav-text">累加器</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

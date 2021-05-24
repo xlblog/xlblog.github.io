@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="SparkSQL是Spark的一个模块，它主要用来处理结构化数据。它是相对于SparkCore更高层的一个API，底层实现也是spark core的方式来实现。 SparkSQL支持纯SQL的开发，也提供了一种链式编程的API，它的关键点是DataFrame。 下面重点介绍一下DataFrame。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spark之二:SQL编程指南">
+<meta property="og:url" content="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="SparkSQL是Spark的一个模块，它主要用来处理结构化数据。它是相对于SparkCore更高层的一个API，底层实现也是spark core的方式来实现。 SparkSQL支持纯SQL的开发，也提供了一种链式编程的API，它的关键点是DataFrame。 下面重点介绍一下DataFrame。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609900617(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609901590(1).jpg">
+<meta property="og:image" content="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609901652(1).jpg">
+<meta property="article:published_time" content="2021-01-06T01:38:55.000Z">
+<meta property="article:modified_time" content="2021-01-06T05:38:56.907Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="spark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609900617(1).jpg">
+
+<link rel="canonical" href="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Spark之二:SQL编程指南 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Spark之二:SQL编程指南
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-06 09:38:55 / 修改时间：13:38:56" itemprop="dateCreated datePublished" datetime="2021-01-06T09:38:55+08:00">2021-01-06</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>SparkSQL是Spark的一个模块，它主要用来处理结构化数据。它是相对于SparkCore更高层的一个API，底层实现也是spark core的方式来实现。</p>
+<p>SparkSQL支持纯SQL的开发，也提供了一种链式编程的API，它的关键点是DataFrame。</p>
+<p>下面重点介绍一下DataFrame。</p>
+<a id="more"></a>
+
+<h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><h3 id="引入spark-sql依赖"><a href="#引入spark-sql依赖" class="headerlink" title="引入spark-sql依赖"></a>引入spark-sql依赖</h3><p>在编写spark-sql程序时，需要将spark-sql的依赖加入到项目中。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.apache.spark<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spark-sql_2.11<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">version</span>&gt;</span>2.2.0<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<h3 id="创建SQL上下文"><a href="#创建SQL上下文" class="headerlink" title="创建SQL上下文"></a>创建SQL上下文</h3><p>在写spark程序时，我们需要一个spark上下文：SparkContext。在写spark-sql时，我们也需要一个SQL上下文：SqlContext。这个SQL上下文是有SparkSession创建出来。SparkSession中定义了spark的运行环境。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span> </span>(args: <span class="type">Array</span> [<span class="type">String</span>]): <span class="type">Unit</span> = &#123;</span><br><span class="line">    <span class="keyword">val</span> sparkSession = <span class="type">SparkSession</span>.builder()</span><br><span class="line">    	.appName(<span class="string">&quot;SparkSqIDemo&quot;</span>)</span><br><span class="line">    	.getOrCreate()  </span><br><span class="line">    <span class="keyword">val</span> sqlContext = sparkSession.sqIContext</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>SparkConf的配置在spark-core中已经介绍了，它们是一样的，都用来指定spark的运行环境。</p>
+<p>ps：在spark2.0时，sqlContext的大部分功能已经完全移到了SparkSession下。意味着我们不再使用sql上下文了，直接从sparkSession中进行sql开发。</p>
+<p>在写spark-core程序时，我们的SparkContext是new出来的，现在也可以从sparkSession中获取。后续推荐使用这种方式来获取sparkContext，因为它完美的避免了同一个程序创建多个SparkContext的这种情况，而且它可以创建不冲突的sqlContext和sparkContext。</p>
+<h3 id="创建DataFrame"><a href="#创建DataFrame" class="headerlink" title="创建DataFrame"></a>创建DataFrame</h3><p>写spark-sql程序，我们必须要先有一个DataFrame。DataFrame可以理解为一个表，它将这个表的结构封装成了一个对象。创建DataFrame有如下几种方式：</p>
+<p>从已有的RDD转换而来<br>  从HiveTable得到<br>  从data source得到</p>
+<p>spark支持的data source有很多种类型，比如：json、csv、parquet、orc、jdbc、other data base。后面我们会详细介绍如何从这些数据源来获得DataFrame。</p>
+<p>下面是一个从json中创建DataFrame的案例：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span></span>(args: <span class="type">Array</span>[<span class="type">String</span>]): <span class="type">Unit</span> = &#123;</span><br><span class="line">    <span class="keyword">val</span> sparkSession = <span class="type">SparkSession</span>.builder()</span><br><span class="line">    	.master(<span class="string">&quot;local[*]&quot;</span>)</span><br><span class="line">    	.appName(<span class="string">&quot;SparkSqlDemo&quot;</span>)</span><br><span class="line">    	.getOrCreate()</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">val</span> dataFrame = sparkSession.read.json(<span class="string">&quot;E:\\workspace\\person.json&quot;</span>)</span><br><span class="line">    dataFrame.show()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个json文件是park案例下的一个json文件，大家可以在example/resource下找到。</p>
+<p><img src="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609900617(1).jpg"></p>
+<h2 id="DataFrame操作详解"><a href="#DataFrame操作详解" class="headerlink" title="DataFrame操作详解"></a>DataFrame操作详解</h2><p>有了DataFrame，就可以在DataFrame上来操作数据了。</p>
+<h3 id="基本的操作方法"><a href="#基本的操作方法" class="headerlink" title="基本的操作方法"></a>基本的操作方法</h3><p>下面介绍一下基本的一些操作方法</p>
+<ul>
+<li>select</li>
+<li>filter</li>
+<li>groupBy</li>
+<li>orderBy</li>
+<li>count</li>
+</ul>
+<p>以person.json这个文件为例：</p>
+<h4 id="select"><a href="#select" class="headerlink" title="select"></a>select</h4><p>select提供了多种形式。可以指定查询的字段名，也可以使用一个表达式。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.select(<span class="string">&quot;name&quot;</span>,<span class="string">&quot;age&quot;</span>)</span><br><span class="line">dataFrame.selectExpr(<span class="string">&quot;age+1 as age2&quot;</span>).show()</span><br></pre></td></tr></table></figure>
+<p>如果不写select，默认是查询全部字段，一般只有在查询部分字段时才写select。</p>
+<h4 id="filter"><a href="#filter" class="headerlink" title="filter"></a>filter</h4><p>filter用来过滤不想要的数据。filter里面可以传一个表达式，也可以传一个function。function一般用于更复杂的过滤。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.filter(<span class="string">&quot;age is not null&quot;</span>).show()</span><br><span class="line"></span><br><span class="line">dataFrame.filter(row=&gt;&#123;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">val</span> age = row.getAs[java.lang.<span class="type">Long</span>](<span class="string">&quot;age&quot;</span>)</span><br><span class="line"></span><br><span class="line">   age != <span class="literal">null</span> &amp;&amp; age &gt; <span class="number">20</span></span><br><span class="line"></span><br><span class="line">&#125;).show()</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="groupBy"><a href="#groupBy" class="headerlink" title="groupBy"></a>groupBy</h4><p>根据某个字段进行分组，可以添加多个字段。类似于sql中的group by name,age</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.groupBy(<span class="string">&quot;name&quot;</span>,<span class="string">&quot;age&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="orderBy"><a href="#orderBy" class="headerlink" title="orderBy"></a>orderBy</h4><p>根据字段进行排序，可以是多个字段，也可以是一个表达式。默认升序，如果需要降序，可以使用表达式的形式来实现。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.orderBy(<span class="string">&quot;age&quot;</span>,<span class="string">&quot;name&quot;</span>).show()</span><br><span class="line">dataFrame.orderBy(newColumn(<span class="string">&quot;age&quot;</span>).desc).show()</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="count"><a href="#count" class="headerlink" title="count"></a>count</h4><p>count一般配合groupBy使用，统计每个分组下的数量。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.groupBy(<span class="string">&quot;name&quot;</span>).count()</span><br></pre></td></tr></table></figure>
+
+
+<p>上面是一些基本的DataFrame方法，可以看出来，和sql基本是一样的。除了这些基本方法之外，还有很多方法，大家可以慢慢了解使用。</p>
+<h3 id="自定义函数"><a href="#自定义函数" class="headerlink" title="自定义函数"></a>自定义函数</h3><p>上面提到，spark在select时可以写表达式，例如我们要统计age列的总和，我们可以写</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.selectExpr(<span class="string">&quot;sum(age)&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>其中的sum是一个sql函数。如果在某些情况下，sum不能满足条件，我们可以自定义自己的函数来使用。</p>
+<p>自定义函数分为3类：</p>
+<ul>
+<li>udf   转换函数：一行输入一行输出</li>
+<li>udaf  聚合函数：多行输入一行输出</li>
+<li>udtf  表函数：一行输入多行输出</li>
+</ul>
+<p>比较常用的是udf和udaf，udtf几乎不用。例如要解析一些json文件，可以用udf来解析。再比如要求某个指标的上下四分位，可以用udaf来聚合。</p>
+<h4 id="自定义udf函数"><a href="#自定义udf函数" class="headerlink" title="自定义udf函数"></a>自定义udf函数</h4><figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sparkSession.udf.register(<span class="string">&quot;my_udf&quot;</span>, (v: java.lang.<span class="type">Long</span>)) =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span>(v != <span class="literal">null</span>) &#123;</span><br><span class="line">        v * <span class="number">2</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="number">0</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">dataFrame.selectExpr(<span class="string">&quot;my_udf(age)&quot;</span>).show()</span><br></pre></td></tr></table></figure>
+<p>使用register来注册一个自定义函数，第一个参数为udf函数名，第二个参数为自定义的udf函数。</p>
+<h4 id="自定义udaf函数"><a href="#自定义udaf函数" class="headerlink" title="自定义udaf函数"></a>自定义udaf函数</h4><p>自定义udaf，需要继承UserDefinedAggregateFunction。我们自定义一个我们的求平均值的函数。</p>
+<p><img src="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609901590(1).jpg"></p>
+<p>使用该自定义函数，像注册udf函数一样，将它注册进去即可使用。</p>
+<h3 id="纯SQL写法"><a href="#纯SQL写法" class="headerlink" title="纯SQL写法"></a>纯SQL写法</h3><p>spark不仅仅提供了链式sql编程外，还提供了入门门槛更低的纯sql写法。如下：</p>
+<p><img src="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/1609901652(1).jpg"></p>
+<p>我们从一个文件中读出一个dataFrame后，我们可以将它注册为一个表视图。可以通过sql来操作该表视图。是不是更简单更方便。</p>
+<p>tempView是session级别的。如果要将tempView分享给所有的session，则可以创建一个全局的视图。</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.createGlobalTempView(<span class="string">&quot;user_info&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>全局视图在所有的session中都有效，直到spark任务停止。</p>
+<p>例如：</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">dataFrame.createGlobalTempView(<span class="string">&quot;user_info&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">val</span> newDataFrame1 = sparkSession.sql(<span class="string">&quot;select * from user_info&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">val</span> newDataFrame2 = sparkSession.newSession().sql(<span class="string">&quot;select * from user_info&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>需要注意的是，newSession只是用来隔离一些注册表、临时视图、注册函数。在它们的底层依旧是同一个SparkContext。我们之前也说过，Spark程序只能有一个SparkContext。</p>
+<h3 id="从已有RDD转换DataFrame"><a href="#从已有RDD转换DataFrame" class="headerlink" title="从已有RDD转换DataFrame"></a>从已有RDD转换DataFrame</h3><p>上面有一种通过文本文件、数据库中读出来DataFrame。除了这些方式之外，还有一种方式就是从一个已知的RDD来创建DataFrame。</p>
+<p>从一个已知的RDD转换为DataFrame又存在两种方式</p>
+<p>通过反射的形式自己推断schema<br>  用户手动创建schema</p>
+<p>使用反射形式转换，代码会更加简洁，但某些场景并不适合，例如解析一个文本文件，该文本文件需要输出到多个不同的表，我们可以手动来创建schema。</p>
+<h4 id="使用反射"><a href="#使用反射" class="headerlink" title="使用反射"></a>使用反射</h4><figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> sparkSession.implicits._</span><br><span class="line"><span class="keyword">val</span> lines = sparkSession.sparkContext.textFile(<span class="string">&quot;E:\\workspace\\person.txt&quot;</span>)</span><br><span class="line"><span class="keyword">val</span> userInfoDataFrame = lines.map(line = &gt; &#123;</span><br><span class="line">    <span class="keyword">val</span> info = line.split(<span class="string">&quot; &quot;</span>)</span><br><span class="line">    <span class="type">UserInfo</span>(info(<span class="number">0</span>).toInt, info(<span class="number">1</span>))</span><br><span class="line">&#125;).toDF</span><br><span class="line">userInfoDataFrame.show()</span><br><span class="line"></span><br><span class="line"><span class="keyword">case</span> <span class="class"><span class="keyword">class</span> <span class="title">UserInfo</span>(<span class="params">age:<span class="type">Int</span>, name:<span class="type">String</span></span>)</span></span><br></pre></td></tr></table></figure>
+<p>我们可以看到，我们定义了一个UserInfo对象，它具有两个属性，通过case class则能通过反射的形式将它转换为对应的DataFrame。需要注意的是，这儿只能是case class，普通class无法转换。</p>
+<h4 id="手动创建schema"><a href="#手动创建schema" class="headerlink" title="手动创建schema"></a>手动创建schema</h4><p>手动创建schema分了三步</p>
+<ul>
+<li>定义Row</li>
+<li>定义StructType</li>
+<li>将row rdd转换为DataFrame</li>
+</ul>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> schema = <span class="keyword">new</span> <span class="type">StructType</span>(<span class="type">Array</span>(<span class="type">StructField</span>(<span class="string">&quot;age&quot;</span>, <span class="type">IntegerType</span>), <span class="type">StructField</span>(<span class="string">&quot;name&quot;</span>, <span class="type">StringType</span>)))</span><br><span class="line"><span class="keyword">val</span> userInfoDataFrame = sparkSession.createDataFrame(rowRdd, schema)</span><br><span class="line">userInfoDataFrame.show()</span><br></pre></td></tr></table></figure>
+<p>上面便是通过已有的RDD来转换为DataFrame。这种场景一般用于一些非结构化的文件中，通过spark-core对其进行解析后，将它转换为结构化的数据，使其存入数据库中。 </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/spark/" rel="tag"># spark</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/" rel="prev" title="Spark之一:RDD编程指南">
+      <i class="fa fa-chevron-left"></i> Spark之一:RDD编程指南
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/" rel="next" title="Spark之三:DataSource详解">
+      Spark之三:DataSource详解 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="nav-number">1.</span> <span class="nav-text">环境准备</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BC%95%E5%85%A5spark-sql%E4%BE%9D%E8%B5%96"><span class="nav-number">1.1.</span> <span class="nav-text">引入spark-sql依赖</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BASQL%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">1.2.</span> <span class="nav-text">创建SQL上下文</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BADataFrame"><span class="nav-number">1.3.</span> <span class="nav-text">创建DataFrame</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DataFrame%E6%93%8D%E4%BD%9C%E8%AF%A6%E8%A7%A3"><span class="nav-number">2.</span> <span class="nav-text">DataFrame操作详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E7%9A%84%E6%93%8D%E4%BD%9C%E6%96%B9%E6%B3%95"><span class="nav-number">2.1.</span> <span class="nav-text">基本的操作方法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#select"><span class="nav-number">2.1.1.</span> <span class="nav-text">select</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#filter"><span class="nav-number">2.1.2.</span> <span class="nav-text">filter</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#groupBy"><span class="nav-number">2.1.3.</span> <span class="nav-text">groupBy</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#orderBy"><span class="nav-number">2.1.4.</span> <span class="nav-text">orderBy</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#count"><span class="nav-number">2.1.5.</span> <span class="nav-text">count</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E5%87%BD%E6%95%B0"><span class="nav-number">2.2.</span> <span class="nav-text">自定义函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89udf%E5%87%BD%E6%95%B0"><span class="nav-number">2.2.1.</span> <span class="nav-text">自定义udf函数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89udaf%E5%87%BD%E6%95%B0"><span class="nav-number">2.2.2.</span> <span class="nav-text">自定义udaf函数</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%AFSQL%E5%86%99%E6%B3%95"><span class="nav-number">2.3.</span> <span class="nav-text">纯SQL写法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%8E%E5%B7%B2%E6%9C%89RDD%E8%BD%AC%E6%8D%A2DataFrame"><span class="nav-number">2.4.</span> <span class="nav-text">从已有RDD转换DataFrame</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E5%8F%8D%E5%B0%84"><span class="nav-number">2.4.1.</span> <span class="nav-text">使用反射</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%89%8B%E5%8A%A8%E5%88%9B%E5%BB%BAschema"><span class="nav-number">2.4.2.</span> <span class="nav-text">手动创建schema</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">15</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
