@@ -20,28 +20,37 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
+  <meta name="description" content="title: RocketMQ源码：(1)入门date: 2021-05-31 09:42:22tags: [rocketmq, bigdata, 消息中间件]categories: RocketMQ 1. 概述在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。 RocketMQ 是阿里巴巴在 2012 年开源的分布式消息中间件，目前已经捐赠给 Apache 软件基金会，并于 2">
+<meta property="og:type" content="article">
 <meta property="og:title" content="乡间小鹿">
-<meta property="og:url" content="http://example.com/index.html">
+<meta property="og:url" content="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81%EF%BC%9A-1-%E5%85%A5%E9%97%A8/index.html">
 <meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="title: RocketMQ源码：(1)入门date: 2021-05-31 09:42:22tags: [rocketmq, bigdata, 消息中间件]categories: RocketMQ 1. 概述在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。 RocketMQ 是阿里巴巴在 2012 年开源的分布式消息中间件，目前已经捐赠给 Apache 软件基金会，并于 2">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://static.iocoder.cn/images/RocketMQ/2019_11_12/01.png">
+<meta property="og:image" content="https://static.iocoder.cn/images/RocketMQ/2019_11_12/02.png">
+<meta property="og:image" content="https://static.iocoder.cn/images/RocketMQ/2019_11_12/02.png">
+<meta property="og:image" content="http://www.iocoder.cn/images/RocketMQ/2019-11-05/01.jpg">
+<meta property="article:published_time" content="2021-05-31T01:42:22.990Z">
+<meta property="article:modified_time" content="2021-05-31T03:32:21.994Z">
 <meta property="article:author" content="李忠友">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://static.iocoder.cn/images/RocketMQ/2019_11_12/01.png">
 
-<link rel="canonical" href="http://example.com/">
+<link rel="canonical" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81%EF%BC%9A-1-%E5%85%A5%E9%97%A8/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-CN'
   };
 </script>
 
-  <title>乡间小鹿</title>
+  <title> | 乡间小鹿</title>
   
 
 
@@ -155,9 +164,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
+
+    
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
@@ -173,10 +183,9 @@
       <meta itemprop="name" content="乡间小鹿">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
+        <h1 class="post-title" itemprop="name headline">
           
-            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81%EF%BC%9A-1-%E5%85%A5%E9%97%A8/" class="post-title-link" itemprop="url">未命名</a>
-        </h2>
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -200,7 +209,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>title: RocketMQ源码：(1)入门<br>date: 2021-05-31 09:42:22<br>tags: [rocketmq, bigdata, 消息中间件]<br>categories: RocketMQ</p>
+        <p>title: RocketMQ源码：(1)入门<br>date: 2021-05-31 09:42:22<br>tags: [rocketmq, bigdata, 消息中间件]<br>categories: RocketMQ</p>
 <h1 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h1><p>在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。</p>
 <p><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/">RocketMQ</a> 是阿里巴巴在 2012 年开源的分布式消息中间件，目前已经捐赠给 Apache 软件基金会，并于 2017 年 9 月 25 日成为 Apache 的顶级项目。作为经历过多次阿里巴巴双十一这种“超级工程”的洗礼并有稳定出色表现的国产中间件，以其高性能、低延时和高可靠等特性近年来已经也被越来越多的国内企业使用。</p>
 <p>如下是 RocketMQ 产生的原因：</p>
@@ -450,742 +459,31 @@
 </ul>
 <p>原文地址：<a target="_blank" rel="noopener" href="https://www.iocoder.cn/RocketMQ/install/">点击进入</a></p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/" class="post-title-link" itemprop="url">Flink On K8s 启动TaskManager时设置cpu limit</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-05-23 10:48:05" itemprop="dateCreated datePublished" datetime="2021-05-23T10:48:05+08:00">2021-05-23</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-26 16:51:22" itemprop="dateModified" datetime="2021-05-26T16:51:22+08:00">2021-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>flink 1.12版本，任务提交到k8s以后，JobManager根据配置，主动拉起一个TaskManager来运行任务。</p>
-<p>我们的部分参数配置如下：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kubernetes.taskmanager.cpu:</span> <span class="number">0.25</span></span><br><span class="line"><span class="attr">kubernetes.jobmanager.cpu:</span> <span class="number">0.2</span></span><br></pre></td></tr></table></figure>
-<p>由于我们的流运行时，基本使用的cpu很小，所以，为了避免资源浪费，我们给的TaskManager使用的cpu都很小。</p>
-<p>因为cpu比较小，所以，在启动一个流的时候，耗时会非常大，启动TaskManager的过程中，有大量的线程初始化去工作，因此导致它的大部分时间都花在了cpu上下文切换上了。</p>
-<p>为了合理利用cpu，我们想，在启动k8s的pod时，给一个</p>
-<p>resource.request.cpu=0.25</p>
-<p>resource.limit.cpu=1</p>
-<p>目的是，让TaskManager启动时，使用更多的cpu，运行时，使用更少的cpu。</p>
-<p>而flink 1.12暴露出来的配置只有：kubernetes.taskmanager.cpu，并没有limit上限的配置，因此，为了能满足我们的需求，我们跟踪一下flink的源码，看下是否能做到。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
-    </div>
 
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/" class="post-title-link" itemprop="url">Flink优化:任务中cpu负载过高</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-04-30 13:47:21 / 修改时间：13:55:47" itemprop="dateCreated datePublished" datetime="2021-04-30T13:47:21+08:00">2021-04-30</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>在flink standalone集群中，向集群提交5个flink任务，会遇到cpu负载过高问题。</p>
-<p>cpu负载过高，会带来cpu大部分都在进行上下文切换，而不实际进行task执行。所以，cpu负载过高，并不是一个好事。来追踪一下当前遇到的场景。一方面是对cpu上下文切换的一个理论实战，另一方面也是解决当前遇到的问题。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/" rel="prev" title="Flink On K8s 启动TaskManager时设置cpu limit">
+      <i class="fa fa-chevron-left"></i> Flink On K8s 启动TaskManager时设置cpu limit
+    </a></div>
+      <div class="post-nav-item"></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
   
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">Flink的Window源码解析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-04-13 17:13:55 / 修改时间：17:22:57" itemprop="dateCreated datePublished" datetime="2021-04-13T17:13:55+08:00">2021-04-13</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Flink的Window源码剖析"><a href="#Flink的Window源码剖析" class="headerlink" title="Flink的Window源码剖析"></a>Flink的Window源码剖析</h1><h2 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h2><p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg"></p>
-<p>可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Window &#123;</span><br><span class="line">	public abstract long maxTimestamp();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最大时间戳。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/" class="post-title-link" itemprop="url">《Nginx系列》2.Nginx安装</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-03-26 16:29:54 / 修改时间：18:07:41" itemprop="dateCreated datePublished" datetime="2021-03-26T16:29:54+08:00">2021-03-26</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Nginx%E7%B3%BB%E5%88%97/" itemprop="url" rel="index"><span itemprop="name">Nginx系列</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="Nginx安装"><a href="#Nginx安装" class="headerlink" title="Nginx安装"></a>Nginx安装</h2><h3 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h3><p>在centos7.8上进行安装。</p>
-<p><a target="_blank" rel="noopener" href="http://nginx.org/">下载Nginx包及依赖</a></p>
-<p>需要下载的依赖：</p>
-<p>nginx-1.18.0.tar.gz</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/" class="post-title-link" itemprop="url">《Nginx系列》1.Nginx简介</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-03-26 13:53:42 / 修改时间：16:29:12" itemprop="dateCreated datePublished" datetime="2021-03-26T13:53:42+08:00">2021-03-26</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Nginx%E7%B3%BB%E5%88%97/" itemprop="url" rel="index"><span itemprop="name">Nginx系列</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="Nginx简介"><a href="#Nginx简介" class="headerlink" title="Nginx简介"></a>Nginx简介</h2><h3 id="什么是Nginx"><a href="#什么是Nginx" class="headerlink" title="什么是Nginx"></a>什么是Nginx</h3><p>Nginx不仅是一个高性能的HTTP和反向代理服务器，同时也是一个IMAP/POP3/SMTP 代理服务器。它是以事件驱动的方式编写，所以有非常好的性能，同时也是一个非常高效的反向代理、负载平衡服务器。在性能上，Nginx占用很少的系统资源，能支持更多的并发连接，达到更高的访问效率；在功能上，Nginx是优秀的代理服务器和负载均衡服务器；在安装配置上，Nginx安装简单、配置灵活。</p>
-<p>在微服务的体系之下，Nginx正在被越来越多的项目采用作为网关来使用，配合Lua做限流、熔断等控制。</p>
-<p>整体架构如下图：</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/" class="post-title-link" itemprop="url">Flink之二:1.12.0版本新特性</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-02-02 10:28:06" itemprop="dateCreated datePublished" datetime="2021-02-02T10:28:06+08:00">2021-02-02</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-02-22 11:37:44" itemprop="dateModified" datetime="2021-02-22T11:37:44+08:00">2021-02-22</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>Apache Flink 社区很荣幸地宣布 Flink 1.12.0 版本正式发布！近 300 位贡献者参与了 Flink 1.12.0 的开发，提交了超过 1000 多个修复或优化。这些修改极大地提高了 Flink 的可用性，并且简化（且统一）了 Flink 的整个 API 栈。其中一些比较重要的修改包括：</p>
-<ul>
-<li>在 DataStream API 上添加了高效的批执行模式的支持。这是批处理和流处理实现真正统一的运行时的一个重要里程碑。</li>
-<li>实现了基于Kubernetes的高可用性（HA）方案，作为生产环境中，ZooKeeper方案之外的另外一种选择。</li>
-<li>扩展了 Kafka SQL connector，使其可以在 upsert 模式下工作，并且支持在 SQL DDL 中处理 connector 的 metadata。现在，时态表 Join 可以完全用 SQL 来表示，不再依赖于 Table API 了。</li>
-<li>PyFlink 中添加了对于 DataStream API 的支持，将 PyFlink 扩展到了更复杂的场景，比如需要对状态或者定时器 timer 进行细粒度控制的场景。除此之外，现在原生支持将 PyFlink 作业部署到 Kubernetes上。</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%B9%9D-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E8%B0%83%E4%BC%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/01/08/Spark%E4%B9%8B%E4%B9%9D-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E8%B0%83%E4%BC%98/" class="post-title-link" itemprop="url">Spark之九:Spark数据倾斜调优</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-01-08 15:23:08 / 修改时间：15:34:02" itemprop="dateCreated datePublished" datetime="2021-01-08T15:23:08+08:00">2021-01-08</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="调优概述"><a href="#调优概述" class="headerlink" title="调优概述"></a>调优概述</h3><p>有的时候，我们可能会遇到大数据计算中一个最棘手的问题——数据倾斜，此时Spark作业的性能会比期望差很多。数据倾斜调优，就是使用各种技术方案解决不同类型的数据倾斜问题，以保证Spark作业的性能。</p>
-<h3 id="数据倾斜发生时的现象"><a href="#数据倾斜发生时的现象" class="headerlink" title="数据倾斜发生时的现象"></a>数据倾斜发生时的现象</h3><p>1、绝大多数task执行得都非常快，但个别task执行极慢。比如，总共有1000个task，997个task都在1分钟之内执行完了，但是剩余两三个task却要一两个小时。这种情况很常见。</p>
-<p>2、原本能够正常执行的Spark作业，某天突然报出OOM（内存溢出）异常，观察异常栈，是我们写的业务代码造成的。这种情况比较少见。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/01/08/Spark%E4%B9%8B%E4%B9%9D-Spark%E6%95%B0%E6%8D%AE%E5%80%BE%E6%96%9C%E8%B0%83%E4%BC%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%85%AB-Spark%E8%B5%84%E6%BA%90%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/01/08/Spark%E4%B9%8B%E5%85%AB-Spark%E8%B5%84%E6%BA%90%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" class="post-title-link" itemprop="url">Spark之八:Spark资源性能调优</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-01-08 15:17:33 / 修改时间：15:22:11" itemprop="dateCreated datePublished" datetime="2021-01-08T15:17:33+08:00">2021-01-08</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在开发完Spark作业之后，就该为作业配置合适的资源了。Spark的资源参数，基本都可以在spark-submit命令中作为参数设置。很多Spark初学者，通常不知道该设置哪些必要的参数，以及如何设置这些参数，最后就只能胡乱设置，甚至压根儿不设置。资源参数设置的不合理，可能会导致没有充分利用集群资源，作业运行会极其缓慢；或者设置的资源过大，队列没有足够的资源来提供，进而导致各种异常。总之，无论是哪种情况，都会导致Spark作业的运行效率低下，甚至根本无法运行。因此我们必须对Spark作业的资源使用原理有一个清晰的认识，并知道在Spark作业运行过程中，有哪些资源参数是可以设置的，以及如何设置合适的参数值。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/01/08/Spark%E4%B9%8B%E5%85%AB-Spark%E8%B5%84%E6%BA%90%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%B8%83-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/01/08/Spark%E4%B9%8B%E4%B8%83-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" class="post-title-link" itemprop="url">未命名</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-01-08 15:03:08 / 修改时间：15:16:24" itemprop="dateCreated datePublished" datetime="2021-01-08T15:03:08+08:00">2021-01-08</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在大数据计算领域，Spark已经成为了越来越流行、越来越受欢迎的计算平台之一。Spark的功能涵盖了大数据领域的离线批处理、SQL类处理、流式/实时计算、机器学习、图计算等各种不同类型的计算操作，应用范围与前景非常广泛。</p>
-<p>然而，通过Spark开发出高性能的大数据计算作业，并不是那么简单的。如果没有对Spark作业进行合理的调优，Spark作业的执行速度可能会很慢，这样就完全体现不出Spark作为一种快速大数据计算引擎的优势来。因此，想要用好Spark，就必须对其进行合理的性能优化。</p>
-<p>Spark的性能调优实际上是由很多部分组成的，不是调节几个参数就可以立竿见影提升作业性能的。我们需要根据不同的业务场景以及数据情况，对Spark作业进行综合性的分析，然后进行多个方面的调节和优化，才能获得最佳性能。</p>
-<p>笔者根据之前的Spark作业开发经验以及实践积累，总结出了一套Spark作业的性能优化方案。整套方案主要分为开发调优、资源调优、数据倾斜调优、shuffle调优几个部分。开发调优和资源调优是所有Spark作业都需要注意和遵循的一些基本原则，是高性能Spark作业的基础；数据倾斜调优，主要讲解了一套完整的用来解决Spark作业数据倾斜的解决方案；shuffle调优，面向的是对Spark的原理有较深层次掌握和研究的同学，主要讲解了如何对Spark作业的shuffle运行过程以及细节进行调优。</p>
-<p>本文作为Spark性能优化指南的基础篇，主要讲解开发调优以及资源调优。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/01/08/Spark%E4%B9%8B%E4%B8%83-Spark%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
-  
-  <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
-  </nav>
 
 
 
@@ -1237,6 +535,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#1-%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">1. 概述</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#1-1-%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"><span class="nav-number">1.1.</span> <span class="nav-text">1.1 基本概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-2-%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="nav-number">1.2.</span> <span class="nav-text">1.2 整体架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-3-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B"><span class="nav-number">1.3.</span> <span class="nav-text">1.3 整体流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-4-%E6%9B%B4%E5%A4%9A%E6%96%87%E6%A1%A3"><span class="nav-number">1.4.</span> <span class="nav-text">1.4 更多文档</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-%E5%8D%95%E6%9C%BA%E9%83%A8%E7%BD%B2"><span class="nav-number">2.</span> <span class="nav-text">2. 单机部署</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-1-%E5%89%8D%E7%BD%AE%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.1.</span> <span class="nav-text">2.1 前置条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-%E4%B8%8B%E8%BD%BD%E6%BA%90%E7%A0%81"><span class="nav-number">2.2.</span> <span class="nav-text">2.2 下载源码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-%E7%BC%96%E8%AF%91%E6%BA%90%E7%A0%81"><span class="nav-number">2.3.</span> <span class="nav-text">2.2 编译源码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-%E5%90%AF%E5%8A%A8-Namesrv"><span class="nav-number">2.4.</span> <span class="nav-text">2.3 启动 Namesrv</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4-%E5%90%AF%E5%8A%A8-Broker"><span class="nav-number">2.5.</span> <span class="nav-text">2.4 启动 Broker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-5-%E6%B5%8B%E8%AF%95%E5%8F%91%E9%80%81%E6%B6%88%E6%81%AF"><span class="nav-number">2.6.</span> <span class="nav-text">2.5 测试发送消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-6-%E6%B5%8B%E8%AF%95%E6%B6%88%E8%B4%B9%E6%B6%88%E6%81%AF"><span class="nav-number">2.7.</span> <span class="nav-text">2.6 测试消费消息</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#3-%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2"><span class="nav-number">3.</span> <span class="nav-text">3. 集群部署</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#4-Web-Console-%E6%8E%A7%E5%88%B6%E5%8F%B0"><span class="nav-number">4.</span> <span class="nav-text">4. Web Console 控制台</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#4-1-%E5%85%8B%E9%9A%86%E4%BB%A3%E7%A0%81"><span class="nav-number">4.1.</span> <span class="nav-text">4.1 克隆代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-2-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-number">4.2.</span> <span class="nav-text">4.2 配置文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-3-%E7%BC%96%E8%AF%91%E6%BA%90%E7%A0%81"><span class="nav-number">4.3.</span> <span class="nav-text">4.3 编译源码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-4-%E5%90%AF%E5%8A%A8%E6%8E%A7%E5%88%B6%E5%8F%B0"><span class="nav-number">4.4.</span> <span class="nav-text">4.4 启动控制台</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-5-%E7%AE%80%E5%8D%95%E4%BD%BF%E7%94%A8"><span class="nav-number">4.5.</span> <span class="nav-text">4.5 简单使用</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#5-%E7%AE%80%E5%8D%95%E7%A4%BA%E4%BE%8B"><span class="nav-number">5.</span> <span class="nav-text">5. 简单示例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#5-1-Producer"><span class="nav-number">5.1.</span> <span class="nav-text">5.1 Producer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-2-Consumer"><span class="nav-number">5.2.</span> <span class="nav-text">5.2 Consumer</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
