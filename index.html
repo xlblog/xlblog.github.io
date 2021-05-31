@@ -161,7 +161,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81%EF%BC%9A-1-%E5%85%A5%E9%97%A8/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -175,7 +175,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81%EF%BC%9A-1-%E5%85%A5%E9%97%A8/" class="post-title-link" itemprop="url">未命名</a>
+            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/" class="post-title-link" itemprop="url">RocketMQ源码:1.入门</a>
         </h2>
 
         <div class="post-meta">
@@ -186,7 +186,16 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-05-31 09:42:22 / 修改时间：11:32:21" itemprop="dateCreated datePublished" datetime="2021-05-31T09:42:22+08:00">2021-05-31</time>
+              <time title="创建时间：2021-05-31 11:36:10 / 修改时间：11:36:38" itemprop="dateCreated datePublished" datetime="2021-05-31T11:36:10+08:00">2021-05-31</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/RocketMQ/" itemprop="url" rel="index"><span itemprop="name">RocketMQ</span></a>
+                </span>
             </span>
 
           
@@ -200,8 +209,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>title: RocketMQ源码：(1)入门<br>date: 2021-05-31 09:42:22<br>tags: [rocketmq, bigdata, 消息中间件]<br>categories: RocketMQ</p>
-<h1 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h1><p>在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。</p>
+          <h1 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h1><p>在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。</p>
 <p><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/">RocketMQ</a> 是阿里巴巴在 2012 年开源的分布式消息中间件，目前已经捐赠给 Apache 软件基金会，并于 2017 年 9 月 25 日成为 Apache 的顶级项目。作为经历过多次阿里巴巴双十一这种“超级工程”的洗礼并有稳定出色表现的国产中间件，以其高性能、低延时和高可靠等特性近年来已经也被越来越多的国内企业使用。</p>
 <p>如下是 RocketMQ 产生的原因：</p>
 <blockquote>
@@ -210,246 +218,14 @@
 <p>但是，同时发现这个消息系统主要定位于日志传输，对于使用在淘宝交易、订单、充值等场景下还有诸多特性不满足，为此我们重新用 Java 语言编写了 RocketMQ ，定位于非日志的可靠消息传输（日志场景也 OK）。</p>
 <p>目前 RocketMQ 在阿里集团被广泛应用在订单，交易，充值，流计算，消息推送，日志流式处理， binglog 分发等场景。</p>
 </blockquote>
-<h2 id="1-1-基本概念"><a href="#1-1-基本概念" class="headerlink" title="1.1 基本概念"></a>1.1 基本概念</h2><p>在开始之前，先认真阅读如下两个文档：</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/docs/cn/concept.md">概念(Concept)</a>：介绍 RocketMQ 的基本概念模型。</li>
-<li><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/docs/cn/features.md">特性(Features)</a>：介绍 RocketMQ 实现的功能特性。</li>
-</ul>
-<h2 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h2><p>如下图所示：<img src="https://static.iocoder.cn/images/RocketMQ/2019_11_12/01.png" alt="角色组成"></p>
-<ul>
-<li>生产者（Producer）：负责产生消息，生产者向消息服务器发送由业务应用程序系统生成的消息。</li>
-<li>消费者（Consumer）：负责消费消息，消费者从消息服务器拉取信息并将其输入用户应用程序。</li>
-<li>消息服务器（Broker）：是消息存储中心，主要作用是接收来自 Producer 的消息并存储， Consumer 从这里取得消息。</li>
-<li>名称服务器（NameServer）：用来保存 Broker 相关 Topic 等元信息并给 Producer ，提供 Consumer 查找 Broker 信息。</li>
-</ul>
-<h2 id="1-3-整体流程"><a href="#1-3-整体流程" class="headerlink" title="1.3 整体流程"></a>1.3 整体流程</h2><p><img src="https://static.iocoder.cn/images/RocketMQ/2019_11_12/02.png" alt="整体流程"></p>
-<ul>
-<li><p>1、启动 <strong>Namesrv</strong>，Namesrv起 来后监听端口，等待 Broker、Producer、Consumer 连上来，相当于一个路由控制中心。</p>
-</li>
-<li><p>2、<strong>Broker</strong> 启动，跟所有的 Namesrv 保持长连接，定时发送心跳包。</p>
-<blockquote>
-<p>心跳包中，包含当前 Broker 信息(IP+端口等)以及存储所有 Topic 信息。 注册成功后，Namesrv 集群中就有 Topic 跟 Broker 的映射关系。</p>
-</blockquote>
-</li>
-<li><p>3、收发消息前，先创建 Topic 。</p>
-<blockquote>
-<p>创建 Topic 时，需要指定该 Topic 要存储在哪些 Broker上。也可以在发送消息时自动创建Topic。</p>
-</blockquote>
-</li>
-<li><p>4、<strong>Producer</strong> 发送消息。</p>
-<blockquote>
-<p>启动时，先跟 Namesrv 集群中的其中一台建立长连接，并从Namesrv 中获取当前发送的 Topic 存在哪些 Broker 上，然后跟对应的 Broker 建立长连接，直接向 Broker 发消息。</p>
-</blockquote>
-</li>
-<li><p>5、<strong>Consumer</strong> 消费消息。</p>
-<blockquote>
-<p>Consumer 跟 Producer 类似。跟其中一台 Namesrv 建立长连接，获取当前订阅 Topic 存在哪些 Broker 上，然后直接跟 Broker 建立连接通道，开始消费消息。</p>
-</blockquote>
-</li>
-</ul>
-<h2 id="1-4-更多文档"><a href="#1-4-更多文档" class="headerlink" title="1.4 更多文档"></a>1.4 更多文档</h2><p>目前 RocketMQ 4 的中文文档很少，所以英文不太好的朋友，后续推荐看看如下资料：</p>
-<ul>
-<li><a target="_blank" rel="noopener" href="http://gd-rus-public.cn-hangzhou.oss-pub.aliyun-inc.com/attachment/201604/08/20160408164726/RocketMQ_userguide.pdf">《RocketMQ 用户指南》</a> 基于 RocketMQ 3 的版本。</li>
-<li><a target="_blank" rel="noopener" href="http://gd-rus-public.cn-hangzhou.oss-pub.aliyun-inc.com/attachment/201604/08/20160408165024/RocketMQ_design.pdf">《RocketMQ 原理简介》</a> 基于 RocketMQ 3 的版本。</li>
-<li><a target="_blank" rel="noopener" href="http://gd-rus-public.cn-hangzhou.oss-pub.aliyun-inc.com/attachment/201604/08/20160408164929/RocketMQ_experience.pdf">《RocketMQ 最佳实践》</a> 基于 RocketMQ 3 的版本。</li>
-<li><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/tree/master/docs/cn">《RocketMQ 开发者指南》</a> 基于 RocketMQ 4 的版本。</li>
-<li><a target="_blank" rel="noopener" href="https://help.aliyun.com/product/29530.html?spm=a2c4g.11186623.6.540.68cc5b3aZYDU2Y">《阿里云 —— 消息队列 MQ》</a> 阿里云的消息队列，就是 RocketMQ 的云服务。</li>
-</ul>
-<h1 id="2-单机部署"><a href="#2-单机部署" class="headerlink" title="2. 单机部署"></a>2. 单机部署</h1><blockquote>
-<p>可以参考 <a target="_blank" rel="noopener" href="https://rocketmq.apache.org/docs/quick-start/">《Apache RocketMQ —— Quick Start》</a> 文章。</p>
-</blockquote>
-<p>本小节，我们会部署一套 RocketMQ 最小化的单机环境，包括一个 RocketMQ Namesrv 和 Broker 服务。部署完成之后，我们会测试消息的发送与消费。下面，让我们逐步开始。</p>
-<h2 id="2-1-前置条件"><a href="#2-1-前置条件" class="headerlink" title="2.1 前置条件"></a>2.1 前置条件</h2><p>需要安装如下软件：</p>
-<ul>
-<li>JDK 8+</li>
-<li>Maven 3.2.X+</li>
-</ul>
-<p>因为我们准备直接编译 RocketMQ 源码，构建出 RocketMQ 软件包。</p>
-<h2 id="2-2-下载源码"><a href="#2-2-下载源码" class="headerlink" title="2.2 下载源码"></a>2.2 下载源码</h2><p>打开 <a target="_blank" rel="noopener" href="http://rocketmq.apache.org/release_notes/">RocketMQ release_notes</a> 页面，我们可以看到 RocketMQ 所有的发布版本。这里，我们选择最新的 <a target="_blank" rel="noopener" href="http://rocketmq.apache.org/release_notes/release-notes-4.6.0/">RocketMQ 4.6.0</a> 版本。点击进入该版本的发布页面后，我们可以看到两种发布版本：</p>
-<ul>
-<li>Source: <a target="_blank" rel="noopener" href="https://www.apache.org/dyn/closer.cgi?path=rocketmq/4.6.0/rocketmq-all-4.6.0-source-release.zip">rocketmq-all-4.6.0-source-release.zip</a></li>
-<li>Binary: <a target="_blank" rel="noopener" href="https://www.apache.org/dyn/closer.cgi?path=rocketmq/4.6.0/rocketmq-all-4.6.0-bin-release.zip">rocketmq-all-4.6.0-bin-release.zip</a></li>
-</ul>
-<p>一般情况下，我们可以直接使用 Binary 版本，它是 RocketMQ 已经编译好，可以直接使用的 RocketMQ 软件包。</p>
-<p>这里，我想带着大家编译一次 RocketMQ 源码，因为我们内部使用的RocketMQ是我们根据自己的业务需求修改过的，所以我使用 Source 版本。下面，我们开始下载 RocketMQ 4.6.0 Source 源码。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 下载</span></span><br><span class="line">$ wget wget http://mirror.bit.edu.cn/apache/rocketmq/4.6.0/rocketmq-all-4.6.0-source-release.zip</span><br><span class="line"></span><br><span class="line"><span class="comment"># 解压</span></span><br><span class="line">$ unzip rocketmq-all-4.6.0-source-release.zip</span><br></pre></td></tr></table></figure>
-
-
-<h2 id="2-2-编译源码"><a href="#2-2-编译源码" class="headerlink" title="2.2 编译源码"></a>2.2 编译源码</h2><p>使用 Maven 编译 RocketMQ 源码。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入 RocketMQ 源码目录</span></span><br><span class="line">$ <span class="built_in">cd</span> rocketmq-all-4.6.0-source-release</span><br><span class="line"></span><br><span class="line"><span class="comment"># Maven 编译 RocketMQ ，并跳过测试。耐心等待...</span></span><br><span class="line">$ mvn -Prelease-all -DskipTests clean install -U</span><br></pre></td></tr></table></figure>
-<p>编译完成，在我们进入 distribution 目录下，就可以看到 RocketMQ 的发布包了。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 进入 distribution 目录下</span></span><br><span class="line">$ <span class="built_in">cd</span> distribution/target/rocketmq-4.6.0/rocketmq-4.6.0</span><br><span class="line"></span><br><span class="line"><span class="comment"># 打印目录</span></span><br><span class="line">$ ls</span><br><span class="line">40 -rwxr-xr-x   1 yunai  staff  17336 Nov 19 20:59 LICENSE</span><br><span class="line"> 8 -rwxr-xr-x   1 yunai  staff   1338 Nov 19 20:59 NOTICE</span><br><span class="line">16 -rwxr-xr-x   1 yunai  staff   4225 Nov 19 20:59 README.md</span><br><span class="line"> 0 drwxr-xr-x   6 yunai  staff    192 Dec  3 12:48 benchmark <span class="comment"># 性能基准测试</span></span><br><span class="line"> 0 drwxr-xr-x  30 yunai  staff    960 Nov 19 20:59 bin <span class="comment"># 执行脚本</span></span><br><span class="line"> 0 drwxr-xr-x  12 yunai  staff    384 Nov 19 20:59 conf <span class="comment"># 配置文件</span></span><br><span class="line"> 0 drwxr-xr-x  36 yunai  staff   1152 Dec  3 12:48 lib <span class="comment"># RocketMQ jar 包</span></span><br></pre></td></tr></table></figure>
-
-
-<h2 id="2-3-启动-Namesrv"><a href="#2-3-启动-Namesrv" class="headerlink" title="2.3 启动 Namesrv"></a>2.3 启动 Namesrv</h2><p>启动一个 RocketMQ Namesrv 服务。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nohup sh bin/mqnamesrv &amp;</span><br></pre></td></tr></table></figure>
-<p>启动完成后，查看日志。</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看 Namesrv 日志。</span></span><br><span class="line">$ tail -f ~/logs/rocketmqlogs/namesrv.log</span><br><span class="line"></span><br><span class="line">2019-12-03 12:58:04 INFO main - The Name Server boot success. serializeType=JSON</span><br></pre></td></tr></table></figure>
-<ul>
-<li>默认情况下，Namesrv 日志文件所在地址为 <code>~/logs/rocketmqlogs/namesrv.log</code> 。如果想要自定义，可以通过 <code>conf/logback_namesrv.xml</code> 配置文件来进行修改。</li>
-</ul>
-<h2 id="2-4-启动-Broker"><a href="#2-4-启动-Broker" class="headerlink" title="2.4 启动 Broker"></a>2.4 启动 Broker</h2><p>在 <code>conf</code> 目录下，RocketMQ 提供了多种 Broker 的配置文件：</p>
-<ul>
-<li><code>broker.conf</code> ：单主，异步刷盘。</li>
-<li><code>2m/</code> ：双主，异步刷盘。</li>
-<li><code>2m-2s-async/</code> ：两主两从，异步复制，异步刷盘。</li>
-<li><code>2m-2s-sync/</code> ：两主两从，同步复制，异步刷盘。</li>
-<li><code>dledger/</code> ：<a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/docs/cn/dledger/deploy_guide.md">Dledger 集群</a>，至少三节点。</li>
-</ul>
-<p>这里，我们只启动一个 RocketMQ Broker 服务，所以使用 <code>broker.conf</code> 配置文件。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nohup sh bin/mqbroker -c conf/broker.conf  -n 127.0.0.1:9876 &amp;</span><br></pre></td></tr></table></figure>
-<ul>
-<li><p>通过 <code>-c</code> 参数，配置读取的主 Broker 配置。</p>
-</li>
-<li><p>通过 <code>-n</code> 参数，设置 RocketMQ Namesrv 地址。</p>
-</li>
-<li><p>如果大家的服务器的存相对小，可以修改下 <code>bin/runbroker.sh</code> 脚本，将 Broker JVM 内存调小。如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">JAVA_OPT=<span class="string">&quot;<span class="variable">$&#123;JAVA_OPT&#125;</span> -server -Xms4g -Xmx4g -Xmn2g&quot;</span></span><br></pre></td></tr></table></figure>
-<p>启动完成后，查看日志。</p>
-</li>
-</ul>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tail -f ~/logs/rocketmqlogs/broker.log</span><br><span class="line"></span><br><span class="line">2019-12-03 14:27:07 INFO main - The broker[broker-a, 192.168.3.44:10911] boot success. serializeType=JSON and name server is 127.0.0.1:9876</span><br></pre></td></tr></table></figure>
-<ul>
-<li>默认情况下，Broker 日志文件所在地址为 <code>~/logs/rocketmqlogs/broker.log</code> 。如果想要自定义，可以通过 <code>conf/logback_broker.xml</code> 配置文件来进行修改。</li>
-</ul>
-<p>至此，我们已经完成了 RocketMQ 单机部署。下面，我们开始进行下消息的发送和消费的测试。</p>
-<h2 id="2-5-测试发送消息"><a href="#2-5-测试发送消息" class="headerlink" title="2.5 测试发送消息"></a>2.5 测试发送消息</h2><p>通过使用 <code>bin/tools.sh</code> 工具类，实现测试发送消息。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 设置 Namesrv 服务器的地址</span></span><br><span class="line"><span class="built_in">export</span> NAMESRV_ADDR=127.0.0.1:9876</span><br><span class="line"></span><br><span class="line"><span class="comment"># 执行生产者 Producer 发送测试消息</span></span><br><span class="line">sh bin/tools.sh org.apache.rocketmq.example.quickstart.Producer</span><br></pre></td></tr></table></figure>
-<p>如果发送成功，我们会看到大量成功的发送日志。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SendResult [sendStatus&#x3D;SEND_OK, msgId&#x3D;FE800000000000004F2B5386138462F500000D7163610D67E7F100F4, offsetMsgId&#x3D;C0A8032C00002A9F000000000000D7EE, messageQueue&#x3D;MessageQueue [topic&#x3D;TopicTest, brokerName&#x3D;broker-a, queueId&#x3D;0], queueOffset&#x3D;61]</span><br><span class="line">SendResult [sendStatus&#x3D;SEND_OK, msgId&#x3D;FE800000000000004F2B5386138462F500000D7163610D67E7F200F5, offsetMsgId&#x3D;C0A8032C00002A9F000000000000D8D1, messageQueue&#x3D;MessageQueue [topic&#x3D;TopicTest, brokerName&#x3D;broker-a, queueId&#x3D;1], queueOffset&#x3D;61]</span><br></pre></td></tr></table></figure>
-<ul>
-<li>通过发送结果为 <code>sendStatus=SEND_OK</code> 状态，说明消息都发送成功了。</li>
-</ul>
-<h2 id="2-6-测试消费消息"><a href="#2-6-测试消费消息" class="headerlink" title="2.6 测试消费消息"></a>2.6 测试消费消息</h2><p>通过使用 <code>bin/tools.sh</code> 工具类，实现测试消费消息。命令行操作如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 设置 Namesrv 服务器的地址</span></span><br><span class="line"><span class="built_in">export</span> NAMESRV_ADDR=127.0.0.1:9876</span><br><span class="line"></span><br><span class="line"><span class="comment"># 执行消费者 Consumer 消费测试消息</span></span><br><span class="line">sh bin/tools.sh org.apache.rocketmq.example.quickstart.Consumer</span><br></pre></td></tr></table></figure>
-<p>如果消费成功，我们会看到大量成功的消费日志。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ConsumeMessageThread_4 Receive New Messages: [MessageExt [queueId&#x3D;2, storeSize&#x3D;227, queueOffset&#x3D;131, sysFlag&#x3D;0, bornTimestamp&#x3D;1575354513732, bornHost&#x3D;&#x2F;192.168.3.44:55510, storeTimestamp&#x3D;1575354513733, storeHost&#x3D;&#x2F;192.168.3.44:10911, msgId&#x3D;C0A8032C00002A9F000000000001D1FC, commitLogOffset&#x3D;119292, bodyCRC&#x3D;1549304357, reconsumeTimes&#x3D;0, preparedTransactionOffset&#x3D;0, toString()&#x3D;Message&#123;topic&#x3D;&#39;TopicTest&#39;, flag&#x3D;0, properties&#x3D;&#123;MIN_OFFSET&#x3D;0, MAX_OFFSET&#x3D;145, CONSUME_START_TIME&#x3D;1575354867104, UNIQ_KEY&#x3D;FE800000000000004F2B5386138462F500000D7163610D67E944020E, CLUSTER&#x3D;DefaultCluster, WAIT&#x3D;true, TAGS&#x3D;TagA&#125;, body&#x3D;[72, 101, 108, 108, 111, 32, 82, 111, 99, 107, 101, 116, 77, 81, 32, 53, 50, 54], transactionId&#x3D;&#39;null&#39;&#125;]]</span><br><span class="line">ConsumeMessageThread_3 Receive New Messages: [MessageExt [queueId&#x3D;2, storeSize&#x3D;227, queueOffset&#x3D;130, sysFlag&#x3D;0, bornTimestamp&#x3D;1575354513729, bornHost&#x3D;&#x2F;192.168.3.44:55510, storeTimestamp&#x3D;1575354513729, storeHost&#x3D;&#x2F;192.168.3.44:10911, msgId&#x3D;C0A8032C00002A9F000000000001CE70, commitLogOffset&#x3D;118384, bodyCRC&#x3D;1530218044, reconsumeTimes&#x3D;0, preparedTransactionOffset&#x3D;0, toString()&#x3D;Message&#123;topic&#x3D;&#39;TopicTest&#39;, flag&#x3D;0, properties&#x3D;&#123;MIN_OFFSET&#x3D;0, MAX_OFFSET&#x3D;145, CONSUME_START_TIME&#x3D;1575354867103, UNIQ_KEY&#x3D;FE800000000000004F2B5386138462F500000D7163610D67E941020A, CLUSTER&#x3D;DefaultCluster, WAIT&#x3D;true, TAGS&#x3D;TagA&#125;, body&#x3D;[72, 101, 108, 108, 111, 32, 82, 111, 99, 107, 101, 116, 77, 81, 32, 53, 50, 50], transactionId&#x3D;&#39;null&#39;&#125;]]</span><br></pre></td></tr></table></figure>
-<ul>
-<li>通过 <code>ConsumeMessageThread_4</code> 和 <code>ConsumeMessageThread_3</code> 线程名，我们可以看出，目前是进行并发消费消息。</li>
-</ul>
-<h1 id="3-集群部署"><a href="#3-集群部署" class="headerlink" title="3. 集群部署"></a>3. 集群部署</h1><p>在生产环境下，必须搭建 RocketMQ 高可用集群。一般 RocketMQ 的集群部署方案推荐如下：</p>
-<ul>
-<li>如果对高性能有比较强的诉求，使用两主两从，异步复制，异步刷盘。</li>
-<li>如果对可靠性有比较强的诉求，建议使用 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/docs/cn/dledger/deploy_guide.md">Dledger 集群</a>，至少三节点。</li>
-</ul>
-<p>下面是RocketMQ 实现高可用的原理。</p>
-<p><img src="https://static.iocoder.cn/images/RocketMQ/2019_11_12/02.png" alt="RocketMQ 集群"></p>
-<p>🦅 <strong>1. Producer</strong></p>
-<ul>
-<li>1、Producer 自身在应用中，所以无需考虑高可用。</li>
-<li>2、Producer 配置多个 Namesrv 列表，从而保证 Producer 和 Namesrv 的连接高可用。并且，会从 Namesrv 定时拉取最新的 Topic 信息。</li>
-<li>3、Producer 会和所有 Consumer 直连，在发送消息时，会选择一个 Broker 进行发送。如果发送失败，则会使用另外一个 Broker 。</li>
-<li>4、Producer 会定时向 Broker 心跳，证明其存活。而 Broker 会定时检测，判断是否有 Producer 异常下线。</li>
-</ul>
-<p>🦅 <strong>2. Consumer</strong></p>
-<ul>
-<li>1、Consumer 需要部署多个节点，以保证 Consumer 自身的高可用。当相同消费者分组中有新的 Consumer 上线，或者老的 Consumer 下线，会重新分配 Topic 的 Queue 到目前消费分组的 Consumer 们。</li>
-<li>2、Consumer 配置多个 Namesrv 列表，从而保证 Consumer 和 Namesrv 的连接高可用。并且，会从 Consumer 定时拉取最新的 Topic 信息。</li>
-<li>3、Consumer 会和所有 Broker 直连，消费相应分配到的 Queue 的消息。如果消费失败，则会发回消息到 Broker 中。</li>
-<li>4、Consumer 会定时向 Broker 心跳，证明其存活。而 Broker 会定时检测，判断是否有 Consumer 异常下线。</li>
-</ul>
-<p>🦅 <strong>3. Namesrv</strong></p>
-<ul>
-<li>1、Namesrv 需要部署多个节点，以保证 Namesrv 的高可用。</li>
-<li>2、Namesrv 本身是无状态，不产生数据的存储，是通过 Broker 心跳将 Topic 信息同步到 Namesrv 中。</li>
-<li>3、多个 Namesrv 之间不会有数据的同步，是通过 Broker 向多个 Namesrv 多写。</li>
-</ul>
-<p>🦅 <strong>4. Broker</strong></p>
-<ul>
-<li>1、多个 Broker 可以形成一个 Broker 分组。每个 Broker 分组存在一个 Master 和多个 Slave 节点。<ul>
-<li>Master 节点，可提供读和写功能。Slave 节点，可提供读功能。</li>
-<li>Master 节点会不断发送新的 CommitLog 给 Slave节点。Slave 节点不断上报本地的 CommitLog 已经同步到的位置给 Master 节点。</li>
-<li>Slave 节点会从 Master 节点拉取消费进度、Topic 配置等等。</li>
-</ul>
-</li>
-<li>2、多个 Broker 分组，形成 Broker 集群。<ul>
-<li>Broker 集群和集群之间，不存在通信与数据同步。</li>
-</ul>
-</li>
-<li>3、Broker 可以配置同步刷盘或异步刷盘，根据消息的持久化的可靠性来配置。</li>
-</ul>
-<h1 id="4-Web-Console-控制台"><a href="#4-Web-Console-控制台" class="headerlink" title="4. Web Console 控制台"></a>4. Web Console 控制台</h1><p>在 RocketMQ 拓展项目(<a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq-externals">rocketmq-externals</a>) 中，包含了 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq-externals/tree/master/rocketmq-console">RocketMQ Console</a> 项目，是 RocketMQ 的图形化管理控制台，提供 Broker 集群信息查看，Topic 管理，Producer、Consumer 信息展示，消息查询等等常用功能。</p>
-<p>虽然说，我们也可以使用 RocketMQ 提供的 <a target="_blank" rel="noopener" href="http://rocketmq.apache.org/docs/cli-admin-tool/">CLI Admin Tool</a> 工具，实现上述的查询与管理的功能，但是命令行的方式对操作人员的要求稍高一些。当然，在 RocketMQ Console 无法满足我们更精细化的管理的需求的时候，我们还是会使用 CLI Admin Tool 工具。</p>
-<p>下面，让我们来搭建一个 RocketMQ Console 控制台。</p>
-<h2 id="4-1-克隆代码"><a href="#4-1-克隆代码" class="headerlink" title="4.1 克隆代码"></a>4.1 克隆代码</h2><p>将 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq-externals">rocketmq-externals</a> 仓库的代码，克隆到本地。操作流程如下：</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 克隆代码</span></span><br><span class="line">$ git <span class="built_in">clone</span> https://github.com/apache/rocketmq-externals.git</span><br><span class="line"></span><br><span class="line"><span class="comment"># 进入 Console 目录</span></span><br><span class="line">$ <span class="built_in">cd</span> rocketmq-console</span><br></pre></td></tr></table></figure>
-<h2 id="4-2-配置文件"><a href="#4-2-配置文件" class="headerlink" title="4.2 配置文件"></a>4.2 配置文件</h2><p>如果大家需要自定义 RocketMQ Console 的配置，可以进入该项目下的 <code>src/main/resources/</code> 目录下，进行相应的配置文件修改。例如说，设置 RocketMQ Namesrv 地址，开启 RocketMQ Console 的登录访问。</p>
-<p>这里，我们修改 <code>src/main/resources/application.properties</code> 配置文件，通过设置 <code>rocketmq.config.namesrvAddr=127.0.0.1:9876</code> 配置项，设置 RocketMQ Namesrv 的地址。</p>
-<h2 id="4-3-编译源码"><a href="#4-3-编译源码" class="headerlink" title="4.3 编译源码"></a>4.3 编译源码</h2><p>使用 Maven 编译 RocketMQ Console 源码。命令行操作如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 编译</span><br><span class="line">$ mvn clean package -Dmaven.test.skip&#x3D;true</span><br></pre></td></tr></table></figure>
-<h2 id="4-4-启动控制台"><a href="#4-4-启动控制台" class="headerlink" title="4.4 启动控制台"></a>4.4 启动控制台</h2><p>直接以 <code>jar</code> 的方式，启动控制台。注意，控制台使用 8080 端口。命令行操作如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nohup java -jar target&#x2F;rocketmq-console-ng-1.0.1.jar &amp;</span><br></pre></td></tr></table></figure>
-<p>启动完成后，查看日志。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ tail -f nohup.out</span><br><span class="line"></span><br><span class="line">[2019-12-03 16:05:19.349]  INFO Tomcat started on port(s): 8080 (http)</span><br><span class="line">[2019-12-03 16:05:19.354]  INFO Started App in 5.341 seconds (JVM running for 6.104)</span><br></pre></td></tr></table></figure>
-<ul>
-<li>当看到如上日志，说明 Console 控制台启动完成。</li>
-</ul>
-<h2 id="4-5-简单使用"><a href="#4-5-简单使用" class="headerlink" title="4.5 简单使用"></a>4.5 简单使用</h2><p>使用浏览器，访问 <a target="_blank" rel="noopener" href="http://127.0.0.1:8080/">http://127.0.0.1:8080/</a> 地址，我们就可以看到 RocketMQ Console 的界面。如下图：<img src="http://www.iocoder.cn/images/RocketMQ/2019-11-05/01.jpg" alt="RocketMQ Console"></p>
-<h1 id="5-简单示例"><a href="#5-简单示例" class="headerlink" title="5. 简单示例"></a>5. 简单示例</h1><p>本小节，我们来看看如何使用生产者 Producer 发送消息，和消费者 Consumer 消费消息。</p>
-<p>在 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq">Rocketmq</a> 仓库的 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/tree/master/example">example</a> 目录下，提供了 RocketMQ 示例。本小节，我们主要来看看 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/tree/master/example/src/main/java/org/apache/rocketmq/example/quickstart">qucikstart</a> 这个最简示例。</p>
-<h2 id="5-1-Producer"><a href="#5-1-Producer" class="headerlink" title="5.1 Producer"></a>5.1 Producer</h2><p><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/example/src/main/java/org/apache/rocketmq/example/quickstart/Producer.java">Producer</a> 类，提供生产者 Producer 发送消息的最简示例。代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Producer.java</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Producer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> MQClientException, InterruptedException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Instantiate with a producer group name.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;1.1&gt; 创建 DefaultMQProducer 对象</span></span><br><span class="line">        DefaultMQProducer producer = <span class="keyword">new</span> DefaultMQProducer(<span class="string">&quot;please_rename_unique_group_name&quot;</span>);</span><br><span class="line">        <span class="comment">// &lt;1.2&gt; 设置 RocketMQ Namesrv 地址</span></span><br><span class="line">        producer.setNamesrvAddr(<span class="string">&quot;127.0.0.1:9876&quot;</span>);</span><br><span class="line">        <span class="comment">// &lt;1.3&gt; 启动 producer 生产者</span></span><br><span class="line">        producer.start();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++) &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="comment">// &lt;2.1&gt; 创建 Message 消息</span></span><br><span class="line">                Message msg = <span class="keyword">new</span> Message(<span class="string">&quot;TopicTest&quot;</span> <span class="comment">/* Topic */</span>,</span><br><span class="line">                    <span class="string">&quot;TagA&quot;</span> <span class="comment">/* Tag */</span>,</span><br><span class="line">                    (<span class="string">&quot;Hello RocketMQ &quot;</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">                );</span><br><span class="line"></span><br><span class="line">                <span class="comment">// &lt;2.2&gt; 同步发送消息</span></span><br><span class="line">                SendResult sendResult = producer.send(msg);</span><br><span class="line"></span><br><span class="line">                <span class="comment">// &lt;2.3&gt; 打印发送结果</span></span><br><span class="line">                System.out.printf(<span class="string">&quot;%s%n&quot;</span>, sendResult);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                e.printStackTrace();</span><br><span class="line">                Thread.sleep(<span class="number">1000</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// &lt;3&gt; 关闭 producer 生产者</span></span><br><span class="line">        producer.shutdown();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<ul>
-<li><p><code>&lt;1&gt;</code> 处，初始化一个 Producer 生产者。</p>
-<ul>
-<li><code>&lt;1.1&gt;</code> 处，创建 DefaultMQProducer 对象，这里设置的生产者分组是 <code>&quot;please_rename_unique_group_name&quot;</code> 。</li>
-<li><code>&lt;1.2&gt;</code> 处，设置 设置 <code>producer</code> 的 RocketMQ Namesrv 地址。这里，是艿艿额外添加的代码。</li>
-<li><code>&lt;1.3&gt;</code> 处，启动 <code>producer</code> 生产者。</li>
-</ul>
-</li>
-<li><p><code>&lt;2&gt;</code> 处，使用 Producer 发送 1000 条消息。</p>
-<ul>
-<li><code>&lt;2.1&gt;</code> 处，创建 Message 消息。这里设置了其 Topic 为 <code>&quot;TopicTest&quot;</code>，Tag 为 <code>TagA</code>、消息体 Body 为 <code>&quot;Hello RocketMQ&quot;</code> 的二进制数组。</li>
-<li><code>&lt;2.2&gt;</code> 处，调用生产者的 <code>#send(Message msg)</code> 方法，<strong>同步</strong>发送消息，等待发送结果。RocketMQ Producer 一共有三种发送消息的方式，除了我们这里看到的同步发送消息之外，还有<strong>异步</strong>发送消息(可见 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/example/src/main/java/org/apache/rocketmq/example/simple/AsyncProducer.java">AsyncProducer</a> 示例)，和 <strong>Oneway</strong> 发送消息。</li>
-<li><code>&lt;2.3&gt;</code> 处，打印发送结果。</li>
-</ul>
-</li>
-<li><p><code>&lt;3&gt;</code> 处，关闭 <code>producer</code> 生产者。</p>
-</li>
-</ul>
-<p>执行 <code>#main(args)</code> 方法，开始发送消息。在控制台上，可以看到如下内容：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 发送日志，省略另外 999 条日志</span><br><span class="line">SendResult [sendStatus&#x3D;SEND_OK, msgId&#x3D;240E00E0F0931BB3FCEC071C1CDE61A8000018B4AAC20E79E06A03E7, offsetMsgId&#x3D;C0A82BF000002A9F000000000008EE72, messageQueue&#x3D;MessageQueue [topic&#x3D;TopicTest, brokerName&#x3D;broker-a, queueId&#x3D;0], queueOffset&#x3D;645]</span><br><span class="line"></span><br><span class="line"># 关闭 Producer 日志</span><br><span class="line">19:27:48.339 [NettyClientSelector_1] INFO  RocketmqRemoting - closeChannel: close the connection to remote address[127.0.0.1:9876] result: true</span><br><span class="line">19:27:48.340 [NettyClientSelector_1] INFO  RocketmqRemoting - closeChannel: close the connection to remote address[192.168.43.240:10911] result: true</span><br></pre></td></tr></table></figure>
-
-
-<h2 id="5-2-Consumer"><a href="#5-2-Consumer" class="headerlink" title="5.2 Consumer"></a>5.2 Consumer</h2><p><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/example/src/main/java/org/apache/rocketmq/example/quickstart/Consumer.java">Consumer</a> 类，提供消费者 Consumer 消费消息的最简示例。代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Consumer.java</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Consumer</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException, MQClientException </span>&#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Instantiate with specified consumer group name.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;1&gt; 创建 DefaultMQPushConsumer 对象</span></span><br><span class="line">        DefaultMQPushConsumer consumer = <span class="keyword">new</span> DefaultMQPushConsumer(<span class="string">&quot;please_rename_unique_group_name_4&quot;</span>);</span><br><span class="line">        <span class="comment">// &lt;2&gt; 设置 RocketMQ Namesrv 地址</span></span><br><span class="line">        consumer.setNamesrvAddr(<span class="string">&quot;127.0.0.1:9876&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Specify name server addresses.</span></span><br><span class="line"><span class="comment">         * &lt;p/&gt;</span></span><br><span class="line"><span class="comment">         *</span></span><br><span class="line"><span class="comment">         * Alternatively, you may specify name server addresses via exporting environmental variable: NAMESRV_ADDR</span></span><br><span class="line"><span class="comment">         * &lt;pre&gt;</span></span><br><span class="line"><span class="comment">         * &#123;@code</span></span><br><span class="line"><span class="comment">         * consumer.setNamesrvAddr(&quot;name-server1-ip:9876;name-server2-ip:9876&quot;);</span></span><br><span class="line"><span class="comment">         * &#125;</span></span><br><span class="line"><span class="comment">         * &lt;/pre&gt;</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Specify where to start in case the specified consumer group is a brand new one.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;3&gt; 设置消费进度，从 Topic 最初位置开始</span></span><br><span class="line">        consumer.setConsumeFromWhere(ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * Subscribe one more more topics to consume.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;4&gt; 订阅 TopicTest 主题</span></span><br><span class="line">        consumer.subscribe(<span class="string">&quot;TopicTest&quot;</span>, <span class="string">&quot;*&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         *  Register callback to execute on arrival of messages fetched from brokers.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;5&gt; 添加消息监听器</span></span><br><span class="line">        consumer.registerMessageListener(<span class="keyword">new</span> MessageListenerConcurrently() &#123;</span><br><span class="line"></span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="function"><span class="keyword">public</span> ConsumeConcurrentlyStatus <span class="title">consumeMessage</span><span class="params">(List&lt;MessageExt&gt; msgs,</span></span></span><br><span class="line"><span class="function"><span class="params">                ConsumeConcurrentlyContext context)</span> </span>&#123;</span><br><span class="line">                System.out.printf(<span class="string">&quot;%s Receive New Messages: %s %n&quot;</span>, Thread.currentThread().getName(), msgs);</span><br><span class="line">                <span class="comment">// 返回成功</span></span><br><span class="line">                <span class="keyword">return</span> ConsumeConcurrentlyStatus.CONSUME_SUCCESS;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">        &#125;);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         *  Launch the consumer instance.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="comment">// &lt;6&gt; 启动 producer 消费者</span></span><br><span class="line">        consumer.start();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 打印 Consumer 启动完成</span></span><br><span class="line">        System.out.printf(<span class="string">&quot;Consumer Started.%n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-<ul>
-<li><p><code>&lt;1&gt;</code> 处，创建 DefaultMQPushConsumer 对象，这里设置的消费者分组是 <code>&quot;please_rename_unique_group_name&quot;</code> 。注意，消费者分组的概念：</p>
-<blockquote>
-<p>FROM <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/docs/cn/concept.md">概念(Concept)</a></p>
-<p>同一类 Consumer 的集合，这类 Consumer 通常消费同一类消息且消费逻辑一致。消费者组使得在消息消费方面，实现负载均衡和容错的目标变得非常容易。</p>
-<p>要注意的是，消费者组的消费者实例必须订阅完全相同的 Topic 。</p>
-<p>RocketMQ 支持两种消息模式：集群消费（Clustering）和广播消费（Broadcasting）。 * 在集群消费下，同一条消息<strong>只</strong>会被<strong>相同</strong>消费者分组的<strong>一个</strong>消费者所消费。 * 在广播消费下，同一条消息会被<strong>相同</strong>消费者分组的<strong>所有</strong>消费者所消费。 * 在当前示例里，我们采用的是 DefaultMQPushConsumer 的默认消费方式，集群消费。</p>
-</blockquote>
-</li>
-<li><p><code>&lt;2&gt;</code> 处，设置 <code>consumer</code> 的 RocketMQ Namesrv 地址。</p>
-</li>
-<li><p><code>&lt;3&gt;</code> 处，设置一个<strong>新的</strong>消费集群，初始的消费进度。目前有三个选项：</p>
-<ul>
-<li><code>CONSUME_FROM_FIRST_OFFSET</code> ：每个 Topic 队列的第一条消息。</li>
-<li><code>CONSUME_FROM_LAST_OFFSET</code> ：每个 Topic 队列的最后一条消息。</li>
-<li><code>CONSUME_FROM_TIMESTAMP</code> ：每个 Topic 队列的指定时间开始的消息。</li>
-<li>😈 注意，只针对<strong>新的</strong>消费集群。如果一个集群每个 Topic 已经有消费进度，则继续使用该消费进度。仔细理解一下哈~</li>
-</ul>
-</li>
-<li><p><code>&lt;4&gt;</code> 处，设置订阅 <code>&quot;TopicTest&quot;</code> 主题的消息。<strong>消费者组的消费者实例必须订阅完全相同的 Topic + Tag</strong> 。</p>
-</li>
-<li><p><code>&lt;5&gt;</code> 处，添加消息监听器。这里我们采用的是 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/client/src/main/java/org/apache/rocketmq/client/consumer/listener/MessageListenerConcurrently.java">MessageListenerConcurrently</a> <strong>并发</strong>消费消息的监听器。如果大家需要实现<strong>顺序</strong>消费消息，需要使用 <a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/blob/master/client/src/main/java/org/apache/rocketmq/client/consumer/listener/MessageListenerOrderly.java">MessageListenerOrderly</a> <strong>顺序</strong>消费的监听器。</p>
-</li>
-<li><p><code>&lt;6&gt;</code> 处，启动 <code>consumer</code> 消费者。此时，Consumer 就开始正式的消费消息啦。。</p>
-</li>
-</ul>
-<p>执行 <code>#main(args)</code> 方法，开始消费消息。在控制台上，可以看到如下内容：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 消费者启动成功</span><br><span class="line">Consumer Started.</span><br><span class="line"></span><br><span class="line"># 消费内容</span><br><span class="line">ConsumeMessageThread_1 Receive New Messages: [MessageExt [queueId&#x3D;2, storeSize&#x3D;225, queueOffset&#x3D;645, sysFlag&#x3D;0, bornTimestamp&#x3D;1575373846053, bornHost&#x3D;&#x2F;192.168.43.240:52717, storeTimestamp&#x3D;1575373846058, storeHost&#x3D;&#x2F;192.168.43.240:10911, msgId&#x3D;C0A82BF000002A9F000000000008EF55, commitLogOffset&#x3D;585557, bodyCRC&#x3D;613185359, reconsumeTimes&#x3D;0, preparedTransactionOffset&#x3D;0, toString()&#x3D;Message&#123;topic&#x3D;&#39;TopicTest&#39;, flag&#x3D;0, properties&#x3D;&#123;MIN_OFFSET&#x3D;0, MAX_OFFSET&#x3D;646, CONSUME_START_TIME&#x3D;1575373846067, UNIQ_KEY&#x3D;240E00E0F0931BB3FCEC071C1CDE61A8000018B4AAC20E8EE6250000, CLUSTER&#x3D;DefaultCluster, WAIT&#x3D;true, TAGS&#x3D;TagA&#125;, body&#x3D;[72, 101, 108, 108, 111, 32, 82, 111, 99, 107, 101, 116, 77, 81, 32, 48], transactionId&#x3D;&#39;null&#39;&#125;]]</span><br><span class="line">ConsumeMessageThread_2 Receive New Messages: [MessageExt [queueId&#x3D;3, storeSize&#x3D;225, queueOffset&#x3D;645, sysFlag&#x3D;0, bornTimestamp&#x3D;1575373846060, bornHost&#x3D;&#x2F;192.168.43.240:52717, storeTimestamp&#x3D;1575373846061, storeHost&#x3D;&#x2F;192.168.43.240:10911, msgId&#x3D;C0A82BF000002A9F000000000008F036, commitLogOffset&#x3D;585782, bodyCRC&#x3D;1401636825, reconsumeTimes&#x3D;0, preparedTransactionOffset&#x3D;0, toString()&#x3D;Message&#123;topic&#x3D;&#39;TopicTest&#39;, flag&#x3D;0, properties&#x3D;&#123;MIN_OFFSET&#x3D;0, MAX_OFFSET&#x3D;646, CONSUME_START_TIME&#x3D;1575373846067, UNIQ_KEY&#x3D;240E00E0F0931BB3FCEC071C1CDE61A8000018B4AAC20E8EE62C0001, CLUSTER&#x3D;DefaultCluster, WAIT&#x3D;true, TAGS&#x3D;TagA&#125;, body&#x3D;[72, 101, 108, 108, 111, 32, 82, 111, 99, 107, 101, 116, 77, 81, 32, 49], transactionId&#x3D;&#39;null&#39;&#125;]]</span><br></pre></td></tr></table></figure>
-<ul>
-<li>通过 <code>ConsumeMessageThread_1</code> 和 <code>ConsumeMessageThread_2</code> 线程名，我们可以看出，目前是进行并发消费消息。</li>
-</ul>
-<p>原文地址：<a target="_blank" rel="noopener" href="https://www.iocoder.cn/RocketMQ/install/">点击进入</a></p>
-
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
@@ -1257,13 +1033,13 @@
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-count">4</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
