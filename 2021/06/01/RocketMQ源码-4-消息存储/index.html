@@ -20,28 +20,40 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="乡间小鹿">
-<meta property="og:url" content="http://example.com/index.html">
+  <meta name="description" content="CommitLog 结构CommitLog、MappedFileQueue、MappedFile 的关系如下：  CommitLog : MappedFileQueue : MappedFile &#x3D; 1 : 1 : N。  反应到系统文件如下： 123456789Yunai-MacdeMacBook-Pro-2:commitlog yunai$ pwd&#x2F;Users&#x2F;yunai&amp;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RocketMQ源码:4.消息存储">
+<meta property="og:url" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/index.html">
 <meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="CommitLog 结构CommitLog、MappedFileQueue、MappedFile 的关系如下：  CommitLog : MappedFileQueue : MappedFile &#x3D; 1 : 1 : N。  反应到系统文件如下： 123456789Yunai-MacdeMacBook-Pro-2:commitlog yunai$ pwd&#x2F;Users&#x2F;yunai&amp;">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/02.png">
+<meta property="og:image" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/01.png">
+<meta property="og:image" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/03.png">
+<meta property="og:image" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/04.jpeg">
+<meta property="article:published_time" content="2021-06-01T07:59:03.000Z">
+<meta property="article:modified_time" content="2021-06-01T08:20:16.441Z">
 <meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="rocketmq">
+<meta property="article:tag" content="消息中间件">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/02.png">
 
-<link rel="canonical" href="http://example.com/">
+<link rel="canonical" href="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-CN'
   };
 </script>
 
-  <title>乡间小鹿</title>
+  <title>RocketMQ源码:4.消息存储 | 乡间小鹿</title>
   
 
 
@@ -155,9 +167,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
+
+    
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
@@ -173,10 +186,9 @@
       <meta itemprop="name" content="乡间小鹿">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/" class="post-title-link" itemprop="url">RocketMQ源码:4.消息存储</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          RocketMQ源码:4.消息存储
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -209,7 +221,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="CommitLog-结构"><a href="#CommitLog-结构" class="headerlink" title="CommitLog 结构"></a>CommitLog 结构</h1><p><code>CommitLog</code>、<code>MappedFileQueue</code>、<code>MappedFile</code> 的关系如下：</p>
+        <h1 id="CommitLog-结构"><a href="#CommitLog-结构" class="headerlink" title="CommitLog 结构"></a>CommitLog 结构</h1><p><code>CommitLog</code>、<code>MappedFileQueue</code>、<code>MappedFile</code> 的关系如下：</p>
 <blockquote>
 <p><img src="/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/02.png" alt="CommitLog、MappedFileQueue、MappedFile的关系"><br><code>CommitLog</code> : <code>MappedFileQueue</code> : <code>MappedFile</code> = 1 : 1 : N。</p>
 </blockquote>
@@ -575,756 +587,36 @@
 </ul>
 <p>原文地址：<a target="_blank" rel="noopener" href="https://www.iocoder.cn/RocketMQ/message-store/">RocketMQ 源码分析 —— Message 存储</a></p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/rocketmq/" rel="tag"># rocketmq</a>
+              <a href="/tags/%E6%B6%88%E6%81%AF%E4%B8%AD%E9%97%B4%E4%BB%B6/" rel="tag"># 消息中间件</a>
+          </div>
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-3-Message%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-3-Message%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/" class="post-title-link" itemprop="url">RocketMQ源码:3.Message发送与接收</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-05-31 14:45:33 / 修改时间：16:36:19" itemprop="dateCreated datePublished" datetime="2021-05-31T14:45:33+08:00">2021-05-31</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/RocketMQ/" itemprop="url" rel="index"><span itemprop="name">RocketMQ</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h2><p><code>Producer</code> 发送消息。</p>
-<blockquote>
-<p>主要看一下同步发送消息的源码，涉及到异步/Oneway发送消息/事务消息时，会先跳过，后期再补充</p>
-</blockquote>
-<p><code>Broker</code> 接收消息</p>
-<blockquote>
-<p>主要查看一下Broker接收到消息之后的操作，消息存储，后面会单独跟踪</p>
-</blockquote>
-<p><img src="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-3-Message%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/01.png"></p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-3-Message%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
-    </div>
 
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-2-%E8%B0%83%E8%AF%95%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-2-%E8%B0%83%E8%AF%95%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87/" class="post-title-link" itemprop="url">RocketMQ源码:2.调试环境准备</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-05-31 11:39:58 / 修改时间：14:51:58" itemprop="dateCreated datePublished" datetime="2021-05-31T11:39:58+08:00">2021-05-31</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/RocketMQ/" itemprop="url" rel="index"><span itemprop="name">RocketMQ</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>阅读源码需要本地能够调试，调试源码可以加快理解。</p>
-<p>为了能本地正常调试，我把本地调试的步骤列一下，以供大家参考。</p>
-<h3 id="增加配置"><a href="#增加配置" class="headerlink" title="增加配置"></a>增加配置</h3><p>在根目录新建一个conf目录，将以下三个文件拷贝过来</p>
-<p>broker.conf<br>logback_broker.xml<br>logback_namesrv.xml</p>
-<p>这三个文件可以在root/distribution/conf目录下找到</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-2-%E8%B0%83%E8%AF%95%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-3-Message%E5%8F%91%E9%80%81%E4%B8%8E%E6%8E%A5%E6%94%B6/" rel="prev" title="RocketMQ源码:3.Message发送与接收">
+      <i class="fa fa-chevron-left"></i> RocketMQ源码:3.Message发送与接收
+    </a></div>
+      <div class="post-nav-item"></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
   
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/" class="post-title-link" itemprop="url">RocketMQ源码:1.入门</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-05-31 11:36:10 / 修改时间：11:36:38" itemprop="dateCreated datePublished" datetime="2021-05-31T11:36:10+08:00">2021-05-31</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/RocketMQ/" itemprop="url" rel="index"><span itemprop="name">RocketMQ</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h1><p>在开始搭建 RocketMQ 服务之前，我们先来对它做下简单的了解。</p>
-<p><a target="_blank" rel="noopener" href="https://rocketmq.apache.org/">RocketMQ</a> 是阿里巴巴在 2012 年开源的分布式消息中间件，目前已经捐赠给 Apache 软件基金会，并于 2017 年 9 月 25 日成为 Apache 的顶级项目。作为经历过多次阿里巴巴双十一这种“超级工程”的洗礼并有稳定出色表现的国产中间件，以其高性能、低延时和高可靠等特性近年来已经也被越来越多的国内企业使用。</p>
-<p>如下是 RocketMQ 产生的原因：</p>
-<blockquote>
-<p>淘宝内部的交易系统使用了淘宝自主研发的 Notify 消息中间件，使用 MySQL 作为消息存储媒介，可完全水平扩容。</p>
-<p>为了进一步降低成本，我们认为存储部分可以进一步优化。2011 年初，Linkin 开源了 Kafka 这个优秀的消息中间件，淘宝中间件团队在对 Kafka 做过充分 Review 之后， Kafka 无限消息堆积，高效的持久化速度吸引了我们。</p>
-<p>但是，同时发现这个消息系统主要定位于日志传输，对于使用在淘宝交易、订单、充值等场景下还有诸多特性不满足，为此我们重新用 Java 语言编写了 RocketMQ ，定位于非日志的可靠消息传输（日志场景也 OK）。</p>
-<p>目前 RocketMQ 在阿里集团被广泛应用在订单，交易，充值，流计算，消息推送，日志流式处理， binglog 分发等场景。</p>
-</blockquote>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/05/31/RocketMQ%E6%BA%90%E7%A0%81-1-%E5%85%A5%E9%97%A8/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/" class="post-title-link" itemprop="url">Flink On K8s 启动TaskManager时设置cpu limit</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-05-23 10:48:05" itemprop="dateCreated datePublished" datetime="2021-05-23T10:48:05+08:00">2021-05-23</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-05-26 16:51:22" itemprop="dateModified" datetime="2021-05-26T16:51:22+08:00">2021-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>flink 1.12版本，任务提交到k8s以后，JobManager根据配置，主动拉起一个TaskManager来运行任务。</p>
-<p>我们的部分参数配置如下：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kubernetes.taskmanager.cpu:</span> <span class="number">0.25</span></span><br><span class="line"><span class="attr">kubernetes.jobmanager.cpu:</span> <span class="number">0.2</span></span><br></pre></td></tr></table></figure>
-<p>由于我们的流运行时，基本使用的cpu很小，所以，为了避免资源浪费，我们给的TaskManager使用的cpu都很小。</p>
-<p>因为cpu比较小，所以，在启动一个流的时候，耗时会非常大，启动TaskManager的过程中，有大量的线程初始化去工作，因此导致它的大部分时间都花在了cpu上下文切换上了。</p>
-<p>为了合理利用cpu，我们想，在启动k8s的pod时，给一个</p>
-<p>resource.request.cpu=0.25</p>
-<p>resource.limit.cpu=1</p>
-<p>目的是，让TaskManager启动时，使用更多的cpu，运行时，使用更少的cpu。</p>
-<p>而flink 1.12暴露出来的配置只有：kubernetes.taskmanager.cpu，并没有limit上限的配置，因此，为了能满足我们的需求，我们跟踪一下flink的源码，看下是否能做到。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/05/23/Flink-On-K8s-%E5%90%AF%E5%8A%A8TaskManager%E6%97%B6%E8%AE%BE%E7%BD%AEcpu-limit/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/" class="post-title-link" itemprop="url">Flink优化:任务中cpu负载过高</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-04-30 13:47:21 / 修改时间：13:55:47" itemprop="dateCreated datePublished" datetime="2021-04-30T13:47:21+08:00">2021-04-30</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>在flink standalone集群中，向集群提交5个flink任务，会遇到cpu负载过高问题。</p>
-<p>cpu负载过高，会带来cpu大部分都在进行上下文切换，而不实际进行task执行。所以，cpu负载过高，并不是一个好事。来追踪一下当前遇到的场景。一方面是对cpu上下文切换的一个理论实战，另一方面也是解决当前遇到的问题。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/04/30/Flink%E4%BC%98%E5%8C%96-%E4%BB%BB%E5%8A%A1%E4%B8%ADcpu%E8%B4%9F%E8%BD%BD%E8%BF%87%E9%AB%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/" class="post-title-link" itemprop="url">Flink的Window源码解析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-04-13 17:13:55 / 修改时间：17:22:57" itemprop="dateCreated datePublished" datetime="2021-04-13T17:13:55+08:00">2021-04-13</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Flink的Window源码剖析"><a href="#Flink的Window源码剖析" class="headerlink" title="Flink的Window源码剖析"></a>Flink的Window源码剖析</h1><h2 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h2><p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg"></p>
-<p>可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Window &#123;</span><br><span class="line">	public abstract long maxTimestamp();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最大时间戳。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/" class="post-title-link" itemprop="url">《Nginx系列》2.Nginx安装</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-03-26 16:29:54 / 修改时间：18:07:41" itemprop="dateCreated datePublished" datetime="2021-03-26T16:29:54+08:00">2021-03-26</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Nginx%E7%B3%BB%E5%88%97/" itemprop="url" rel="index"><span itemprop="name">Nginx系列</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="Nginx安装"><a href="#Nginx安装" class="headerlink" title="Nginx安装"></a>Nginx安装</h2><h3 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h3><p>在centos7.8上进行安装。</p>
-<p><a target="_blank" rel="noopener" href="http://nginx.org/">下载Nginx包及依赖</a></p>
-<p>需要下载的依赖：</p>
-<p>nginx-1.18.0.tar.gz</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B2-Nginx%E5%AE%89%E8%A3%85/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/" class="post-title-link" itemprop="url">《Nginx系列》1.Nginx简介</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-03-26 13:53:42 / 修改时间：16:29:12" itemprop="dateCreated datePublished" datetime="2021-03-26T13:53:42+08:00">2021-03-26</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Nginx%E7%B3%BB%E5%88%97/" itemprop="url" rel="index"><span itemprop="name">Nginx系列</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="Nginx简介"><a href="#Nginx简介" class="headerlink" title="Nginx简介"></a>Nginx简介</h2><h3 id="什么是Nginx"><a href="#什么是Nginx" class="headerlink" title="什么是Nginx"></a>什么是Nginx</h3><p>Nginx不仅是一个高性能的HTTP和反向代理服务器，同时也是一个IMAP/POP3/SMTP 代理服务器。它是以事件驱动的方式编写，所以有非常好的性能，同时也是一个非常高效的反向代理、负载平衡服务器。在性能上，Nginx占用很少的系统资源，能支持更多的并发连接，达到更高的访问效率；在功能上，Nginx是优秀的代理服务器和负载均衡服务器；在安装配置上，Nginx安装简单、配置灵活。</p>
-<p>在微服务的体系之下，Nginx正在被越来越多的项目采用作为网关来使用，配合Lua做限流、熔断等控制。</p>
-<p>整体架构如下图：</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/03/26/%E3%80%8ANginx%E7%B3%BB%E5%88%97%E3%80%8B1-Nginx%E7%AE%80%E4%BB%8B/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/" class="post-title-link" itemprop="url">Flink之二:1.12.0版本新特性</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-02-02 10:28:06" itemprop="dateCreated datePublished" datetime="2021-02-02T10:28:06+08:00">2021-02-02</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-02-22 11:37:44" itemprop="dateModified" datetime="2021-02-22T11:37:44+08:00">2021-02-22</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Flink/" itemprop="url" rel="index"><span itemprop="name">Flink</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>Apache Flink 社区很荣幸地宣布 Flink 1.12.0 版本正式发布！近 300 位贡献者参与了 Flink 1.12.0 的开发，提交了超过 1000 多个修复或优化。这些修改极大地提高了 Flink 的可用性，并且简化（且统一）了 Flink 的整个 API 栈。其中一些比较重要的修改包括：</p>
-<ul>
-<li>在 DataStream API 上添加了高效的批执行模式的支持。这是批处理和流处理实现真正统一的运行时的一个重要里程碑。</li>
-<li>实现了基于Kubernetes的高可用性（HA）方案，作为生产环境中，ZooKeeper方案之外的另外一种选择。</li>
-<li>扩展了 Kafka SQL connector，使其可以在 upsert 模式下工作，并且支持在 SQL DDL 中处理 connector 的 metadata。现在，时态表 Join 可以完全用 SQL 来表示，不再依赖于 Table API 了。</li>
-<li>PyFlink 中添加了对于 DataStream API 的支持，将 PyFlink 扩展到了更复杂的场景，比如需要对状态或者定时器 timer 进行细粒度控制的场景。除此之外，现在原生支持将 PyFlink 作业部署到 Kubernetes上。</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/02/02/Flink1.12.0%E7%89%88%E6%9C%AC%E6%96%B0%E7%89%B9%E6%80%A7/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
-  
-  <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
-  </nav>
 
 
 
@@ -1376,6 +668,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#CommitLog-%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">CommitLog 结构</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CommitLog-%E5%AD%98%E5%82%A8%E6%B6%88%E6%81%AF"><span class="nav-number">2.</span> <span class="nav-text">CommitLog 存储消息</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#CommitLog-putMessage-%E2%80%A6"><span class="nav-number">2.1.</span> <span class="nav-text">CommitLog#putMessage(…)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MappedFileQueue-getLastMappedFile-%E2%80%A6"><span class="nav-number">2.2.</span> <span class="nav-text">MappedFileQueue#getLastMappedFile(…)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MappedFile-appendMessage-%E2%80%A6"><span class="nav-number">2.3.</span> <span class="nav-text">MappedFile#appendMessage(…)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DefaultAppendMessageCallback-doAppend-%E2%80%A6"><span class="nav-number">2.4.</span> <span class="nav-text">DefaultAppendMessageCallback#doAppend(…)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FlushCommitLogService"><span class="nav-number">2.5.</span> <span class="nav-text">FlushCommitLogService</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MappedFile-%E8%90%BD%E7%9B%98"><span class="nav-number">2.5.1.</span> <span class="nav-text">MappedFile#落盘</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FlushRealTimeService"><span class="nav-number">2.5.2.</span> <span class="nav-text">FlushRealTimeService</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CommitRealTimeService"><span class="nav-number">2.5.3.</span> <span class="nav-text">CommitRealTimeService</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GroupCommitService"><span class="nav-number">2.5.4.</span> <span class="nav-text">GroupCommitService</span></a></li></ol></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
