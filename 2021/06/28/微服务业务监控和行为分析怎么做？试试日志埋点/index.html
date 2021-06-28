@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一、说明互联网公司一般都会有专门的数据团队对公司的一些业务指标负责；为了拿到这些基本的业务指标，一般也要工程团队去配合做一些数据采集工作，于是埋点诞生了。  埋点的方式有很多种，本文主要介绍 日志埋点 这种方式以及实现思路和案例。  日志埋点 就是通过程序打印 log 日志的方式进行业务&#x2F;行为数据的记录">
+<meta property="og:type" content="article">
+<meta property="og:title" content="微服务业务监控和行为分析怎么做？试试日志埋点">
+<meta property="og:url" content="http://example.com/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="一、说明互联网公司一般都会有专门的数据团队对公司的一些业务指标负责；为了拿到这些基本的业务指标，一般也要工程团队去配合做一些数据采集工作，于是埋点诞生了。  埋点的方式有很多种，本文主要介绍 日志埋点 这种方式以及实现思路和案例。  日志埋点 就是通过程序打印 log 日志的方式进行业务&#x2F;行为数据的记录">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/f3334f0c53ef7477d3c202b6e1dd647d1603447450714.png">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/0b299afaefa9837df9980d062b4d89581603447450714.png">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/ecb3a6f3b759e4ae4e5275993b7774ef1603447450715.png">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/a78ce76f2e81913a1e00de8c9ceadfcf1603447450715.png">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/1a7cde7dfac5e2b7e4d3859f0c556ae21603447450715.png">
+<meta property="og:image" content="https://res-static.hc-cdn.cn/fms/img/731647eb267b1d7b26b10909ba6551c01603447450715.png">
+<meta property="article:published_time" content="2021-06-28T10:03:02.000Z">
+<meta property="article:modified_time" content="2021-06-28T10:08:16.051Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="数据埋点">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://res-static.hc-cdn.cn/fms/img/f3334f0c53ef7477d3c202b6e1dd647d1603447450714.png">
+
+<link rel="canonical" href="http://example.com/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>微服务业务监控和行为分析怎么做？试试日志埋点 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          微服务业务监控和行为分析怎么做？试试日志埋点
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-28 18:03:02 / 修改时间：18:08:16" itemprop="dateCreated datePublished" datetime="2021-06-28T18:03:02+08:00">2021-06-28</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%9D%82%E8%B0%88/" itemprop="url" rel="index"><span itemprop="name">杂谈</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="一、说明"><a href="#一、说明" class="headerlink" title="一、说明"></a>一、说明</h2><p>互联网公司一般都会有专门的数据团队对公司的一些业务指标负责；为了拿到这些基本的业务指标，一般也要工程团队去配合做一些数据采集工作，于是埋点诞生了。 </p>
+<p>埋点的方式有很多种，本文主要介绍 <code>日志埋点</code> 这种方式以及实现思路和案例。</p>
+<blockquote>
+<p><code>日志埋点</code> 就是通过程序打印 <code>log</code> 日志的方式进行业务/行为数据的记录</p>
+</blockquote>
+<a id="more"></a>
+
+
+
+<h2 id="二、总体架构"><a href="#二、总体架构" class="headerlink" title="二、总体架构"></a>二、总体架构</h2><p><img src="https://res-static.hc-cdn.cn/fms/img/f3334f0c53ef7477d3c202b6e1dd647d1603447450714.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点1"></p>
+<p>通过 <code>日志埋点</code> 来实现业务监控和行为分析主要需要以下4个步骤</p>
+<ol>
+<li>数据生成(埋点)</li>
+<li>数据收集</li>
+<li>数据解析(结构化)</li>
+<li>数据落盘</li>
+<li>数据使用(展示/分析)</li>
+</ol>
+<h2 id="三、方案说明"><a href="#三、方案说明" class="headerlink" title="三、方案说明"></a>三、方案说明</h2><h3 id="3-1-数据生成"><a href="#3-1-数据生成" class="headerlink" title="3.1. 数据生成"></a>3.1. 数据生成</h3><p>日志数据的生成直接使用 <code>Logback</code> 等日志框架就可以了，可以自己封装公共方法、aop、注解等方式来生成指定的埋点日志</p>
+<p>但是为了便于后面的数据解析，日志数据需要规范先行</p>
+<ol>
+<li><p>所有的埋点日志必需约定好统一的格式，例如：{时间}|{来源}|{对象id}|{类型}|{对象属性(以&amp;分割)}</p>
+<blockquote>
+<p>按上面的格式生成的日志为：2019-11-07 10:32:01|api-gateway|1|request-statistics|ip=171.221.203.106&amp;browser=CHROME&amp;operatingSystem=WINDOWS_10</p>
+</blockquote>
+</li>
+<li><p>避免埋点的日志文件和系统本身输出的日志混淆</p>
+</li>
+</ol>
+<p><img src="https://res-static.hc-cdn.cn/fms/img/0b299afaefa9837df9980d062b4d89581603447450714.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点2"></p>
+<blockquote>
+<p>埋点的日志输出的目录、文件等需要和应用本身的日志分离通过 <code>Logback</code> 的配置就能实现</p>
+</blockquote>
+<p><strong>埋点案例</strong></p>
+<p><img src="https://res-static.hc-cdn.cn/fms/img/ecb3a6f3b759e4ae4e5275993b7774ef1603447450715.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点3"></p>
+<p><strong>生成日志</strong></p>
+<p><img src="https://res-static.hc-cdn.cn/fms/img/a78ce76f2e81913a1e00de8c9ceadfcf1603447450715.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点4"></p>
+<blockquote>
+<p>网关埋点用户请求</p>
+</blockquote>
+<h3 id="3-2-数据收集"><a href="#3-2-数据收集" class="headerlink" title="3.2. 数据收集"></a>3.2. 数据收集</h3><p>关于日志数据的收集可选择的中间件比较多，除了图中的 <code>FileBeat</code> 之外还有 <code>Flume</code>、<code>Fluentd</code>、<code>rsyslog</code> 等；需要每台服务器都部署一个收集中间件。</p>
+<blockquote>
+<p>每台服务器部署一个就行了，就算一台服务器中启了多个微服务也是可以一齐收集</p>
+</blockquote>
+<p>PS：日志收集后面的 <code>消息队列</code> 并不是必需的可以去掉，但是增加 <code>消息队列</code> 后有以下两个优点</p>
+<ol>
+<li>削峰填谷：减轻后面日志解析的压力</li>
+<li>数据共享：日志数据除了提供给日志系统之外，可以增加消费端的同时提供给其他地方使用，如流计算等</li>
+</ol>
+<h3 id="3-3-数据解析"><a href="#3-3-数据解析" class="headerlink" title="3.3. 数据解析"></a>3.3. 数据解析</h3><p>使用 <code>Logstash</code> 的grok表达式解析日志数据并结构化，以上面的日志数据为例</p>
+<blockquote>
+<p>2019-11-07 10:32:01|api-gateway|1|request-statistics|ip=171.221.203.106&amp;browser=CHROME&amp;operatingSystem=WINDOWS_10</p>
+</blockquote>
+<p>结构化后的日志数据为：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#123; <span class="attr">timestamp</span>: <span class="string">&#x27;2019-11-07 10:32:01&#x27;</span>, <span class="attr">appName</span>: <span class="string">&#x27;api-gateway&#x27;</span>, <span class="attr">resouceid</span>: <span class="string">&#x27;1&#x27;</span>, <span class="attr">type</span>: <span class="string">&#x27;request-statistics&#x27;</span>, <span class="attr">ip</span>: <span class="string">&#x27;171.221.203.106&#x27;</span>, <span class="attr">browser</span>: <span class="string">&#x27;CHROME&#x27;</span>, <span class="attr">operatingSystem</span>: <span class="string">&#x27;WINDOWS_10&#x27;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="3-4-数据落盘"><a href="#3-4-数据落盘" class="headerlink" title="3.4. 数据落盘"></a>3.4. 数据落盘</h3><p>通过 <code>Logstash</code> 能自动创建 <code>Elasticsearch</code> 索引并以天为单位分片</p>
+<p><img src="https://res-static.hc-cdn.cn/fms/img/1a7cde7dfac5e2b7e4d3859f0c556ae21603447450715.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点5"></p>
+<blockquote>
+<p>可以通过索引模板来指定每个字段的类型和分词器等属性</p>
+</blockquote>
+<h3 id="3-5-数据使用"><a href="#3-5-数据使用" class="headerlink" title="3.5. 数据使用"></a>3.5. 数据使用</h3><p>日志数据落盘到 <code>Elasticsearch</code> 后，就可以通过聚合查询等方式实时显示监控数据或者分析日志数据</p>
+<p><strong>监控案例</strong></p>
+<p><img src="https://res-static.hc-cdn.cn/fms/img/731647eb267b1d7b26b10909ba6551c01603447450715.png" alt="微服务业务监控和行为分析怎么做？试试日志埋点6"></p>
+<blockquote>
+<p>聚合查询逻辑可参考 <a target="_blank" rel="noopener" href="https://gitee.com/zlt2000/microservices-platform">https://gitee.com/zlt2000/microservices-platform</a></p>
+</blockquote>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p><code>日志埋点</code> 只是其中一种埋点手段而已，优点是系统无入侵且灵活；日志收集、解析、落盘等都可以灵活搭配选择不同的中间件，并且不需要修改源系统的代码；并且可以方便对接其他分析平台(例如: 大数据平台)</p>
+<p>PS：业务监控是否可以不做日志埋点，直接查询业务的数据库呢？(不建议这样做)</p>
+<ol>
+<li><p>使用日志埋点能实现监控数据与业务数据分离，监控平台不会影响或增加业务数据库的压力</p>
+</li>
+<li><p>使用日志埋点能方便实现实时业务数据预警</p>
+<blockquote>
+<p>举个栗子：日志收集后面添加流计算中间件，计算某个时间窗口内优惠卷日志的数量或者金额大于某个阀值，则发出预警</p>
+</blockquote>
+</li>
+</ol>
+<p>转自：<a target="_blank" rel="noopener" href="https://www.huaweicloud.com/articles/f3da6075db92e567fe1c2760725c0c71.html">微服务业务监控和行为分析怎么做？试试日志埋点</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%95%B0%E6%8D%AE%E5%9F%8B%E7%82%B9/" rel="tag"># 数据埋点</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/" rel="prev" title="RocketMQ源码:4.消息存储">
+      <i class="fa fa-chevron-left"></i> RocketMQ源码:4.消息存储
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E8%AF%B4%E6%98%8E"><span class="nav-number">1.</span> <span class="nav-text">一、说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E6%80%BB%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">二、总体架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%96%B9%E6%A1%88%E8%AF%B4%E6%98%8E"><span class="nav-number">3.</span> <span class="nav-text">三、方案说明</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E6%95%B0%E6%8D%AE%E7%94%9F%E6%88%90"><span class="nav-number">3.1.</span> <span class="nav-text">3.1. 数据生成</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E6%95%B0%E6%8D%AE%E6%94%B6%E9%9B%86"><span class="nav-number">3.2.</span> <span class="nav-text">3.2. 数据收集</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%95%B0%E6%8D%AE%E8%A7%A3%E6%9E%90"><span class="nav-number">3.3.</span> <span class="nav-text">3.3. 数据解析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-%E6%95%B0%E6%8D%AE%E8%90%BD%E7%9B%98"><span class="nav-number">3.4.</span> <span class="nav-text">3.4. 数据落盘</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E6%95%B0%E6%8D%AE%E4%BD%BF%E7%94%A8"><span class="nav-number">3.5.</span> <span class="nav-text">3.5. 数据使用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">四、总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">20</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
