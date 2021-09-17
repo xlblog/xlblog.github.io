@@ -20,12 +20,12 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="Flink的Window源码剖析Window 可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下： 123public abstract class Window &amp;#123;	public abstract long maxTimestamp();&amp;#125; 可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最">
+  <meta name="description" content="Flink的Window源码剖析">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Flink的Window源码解析">
 <meta property="og:url" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/index.html">
 <meta property="og:site_name" content="乡间小鹿">
-<meta property="og:description" content="Flink的Window源码剖析Window 可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下： 123public abstract class Window &amp;#123;	public abstract long maxTimestamp();&amp;#125; 可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最">
+<meta property="og:description" content="Flink的Window源码剖析">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg">
 <meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/2.jpg">
@@ -36,7 +36,7 @@
 <meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/7.jpg">
 <meta property="og:image" content="http://example.com/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/8.jpg">
 <meta property="article:published_time" content="2021-04-13T09:13:55.000Z">
-<meta property="article:modified_time" content="2021-04-13T09:22:57.529Z">
+<meta property="article:modified_time" content="2021-09-17T08:28:19.335Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="flink">
 <meta property="article:tag" content="bigdata">
@@ -199,10 +199,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-04-13 17:13:55 / 修改时间：17:22:57" itemprop="dateCreated datePublished" datetime="2021-04-13T17:13:55+08:00">2021-04-13</time>
+              <time title="创建时间：2021-04-13 17:13:55" itemprop="dateCreated datePublished" datetime="2021-04-13T17:13:55+08:00">2021-04-13</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-09-17 16:28:19" itemprop="dateModified" datetime="2021-09-17T16:28:19+08:00">2021-09-17</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -224,12 +230,12 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h1 id="Flink的Window源码剖析"><a href="#Flink的Window源码剖析" class="headerlink" title="Flink的Window源码剖析"></a>Flink的Window源码剖析</h1><h2 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h2><p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg"></p>
+        <h1 id="Flink的Window源码剖析"><a href="#Flink的Window源码剖析" class="headerlink" title="Flink的Window源码剖析"></a>Flink的Window源码剖析</h1><a id="more"></a>
+
+<h2 id="Window"><a href="#Window" class="headerlink" title="Window"></a>Window</h2><p><img src="/2021/04/13/Flink%E7%9A%84Window%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/1.jpg"></p>
 <p>可以看到，GlobalWindow和TimeWindow均继承自抽象类Window，其源码如下：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">public abstract class Window &#123;</span><br><span class="line">	public abstract long maxTimestamp();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>可以看出，Window抽象类仅有一个maxTimestamp()方法用于获取仍属于该窗口的最大时间戳。</p>
-<a id="more"></a>
-
 <h3 id="TimeWindow"><a href="#TimeWindow" class="headerlink" title="TimeWindow"></a>TimeWindow</h3><p>首先看TimeWindow的数据结构：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br></pre></td><td class="code"><pre><span class="line">public class TimeWindow extends Window &#123;</span><br><span class="line"></span><br><span class="line">	private final long start;</span><br><span class="line">	private final long end;</span><br><span class="line"></span><br><span class="line">	public TimeWindow(long start, long end) &#123;</span><br><span class="line">		this.start &#x3D; start;</span><br><span class="line">		this.end &#x3D; end;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	</span><br><span class="line">	public long getStart() &#123;</span><br><span class="line">		return start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public long getEnd() &#123;</span><br><span class="line">		return end;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public long maxTimestamp() &#123;</span><br><span class="line">		return end - 1;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public boolean equals(Object o) &#123;</span><br><span class="line">		if (this &#x3D;&#x3D; o) &#123;</span><br><span class="line">			return true;</span><br><span class="line">		&#125;</span><br><span class="line">		if (o &#x3D;&#x3D; null || getClass() !&#x3D; o.getClass()) &#123;</span><br><span class="line">			return false;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		TimeWindow window &#x3D; (TimeWindow) o;</span><br><span class="line"></span><br><span class="line">		return end &#x3D;&#x3D; window.end &amp;&amp; start &#x3D;&#x3D; window.start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public int hashCode() &#123;</span><br><span class="line">		return MathUtils.longToIntWithBitMixing(start + end);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	@Override</span><br><span class="line">	public String toString() &#123;</span><br><span class="line">		return &quot;TimeWindow&#123;&quot; +</span><br><span class="line">				&quot;start&#x3D;&quot; + start +</span><br><span class="line">				&quot;, end&#x3D;&quot; + end +</span><br><span class="line">				&#39;&#125;&#39;;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public boolean intersects(TimeWindow other) &#123;</span><br><span class="line">		return this.start &lt;&#x3D; other.end &amp;&amp; this.end &gt;&#x3D; other.start;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public TimeWindow cover(TimeWindow other) &#123;</span><br><span class="line">		return new TimeWindow(Math.min(start, other.start), Math.max(end, other.end));</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	......</span><br><span class="line">	</span><br><span class="line">	public static void mergeWindows(Collection&lt;TimeWindow&gt; windows, MergingWindowAssigner.MergeCallback&lt;TimeWindow&gt; c) &#123;</span><br><span class="line"></span><br><span class="line">		List&lt;TimeWindow&gt; sortedWindows &#x3D; new ArrayList&lt;&gt;(windows);</span><br><span class="line"></span><br><span class="line">		Collections.sort(sortedWindows, new Comparator&lt;TimeWindow&gt;() &#123;</span><br><span class="line">			@Override</span><br><span class="line">			public int compare(TimeWindow o1, TimeWindow o2) &#123;</span><br><span class="line">				return Long.compare(o1.getStart(), o2.getStart());</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;);</span><br><span class="line"></span><br><span class="line">		List&lt;Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt;&gt; merged &#x3D; new ArrayList&lt;&gt;();</span><br><span class="line">		Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt; currentMerge &#x3D; null;</span><br><span class="line"></span><br><span class="line">		for (TimeWindow candidate: sortedWindows) &#123;</span><br><span class="line">			if (currentMerge &#x3D;&#x3D; null) &#123;</span><br><span class="line">				currentMerge &#x3D; new Tuple2&lt;&gt;();</span><br><span class="line">				currentMerge.f0 &#x3D; candidate;</span><br><span class="line">				currentMerge.f1 &#x3D; new HashSet&lt;&gt;();</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125; else if (currentMerge.f0.intersects(candidate)) &#123;</span><br><span class="line">				currentMerge.f0 &#x3D; currentMerge.f0.cover(candidate);</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125; else &#123;</span><br><span class="line">				merged.add(currentMerge);</span><br><span class="line">				currentMerge &#x3D; new Tuple2&lt;&gt;();</span><br><span class="line">				currentMerge.f0 &#x3D; candidate;</span><br><span class="line">				currentMerge.f1 &#x3D; new HashSet&lt;&gt;();</span><br><span class="line">				currentMerge.f1.add(candidate);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		if (currentMerge !&#x3D; null) &#123;</span><br><span class="line">			merged.add(currentMerge);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		for (Tuple2&lt;TimeWindow, Set&lt;TimeWindow&gt;&gt; m: merged) &#123;</span><br><span class="line">			if (m.f1.size() &gt; 1) &#123;</span><br><span class="line">				c.merge(m.f1, m.f0);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public static long getWindowStartWithOffset(long timestamp, long offset, long windowSize) &#123;</span><br><span class="line">		return timestamp - (timestamp - offset + windowSize) % windowSize;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p><strong>该窗口主要用于实现时间驱动的相关操作</strong>。</p>
@@ -409,20 +415,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-count">21</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

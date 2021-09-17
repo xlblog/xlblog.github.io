@@ -20,16 +20,16 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。 使用load加载不同格式的数据源load是最简单，最通用的一种加载方式。spark默认是加载parquet格式的。如果需要其他格式，需要通过format指定格式，spark内部也提供了一些常用的格式，如果你的文件不满足这些格式，你可以自定义format方式。">
+  <meta name="description" content="spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Spark之三:DataSource详解">
 <meta property="og:url" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/index.html">
 <meta property="og:site_name" content="乡间小鹿">
-<meta property="og:description" content="spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。 使用load加载不同格式的数据源load是最简单，最通用的一种加载方式。spark默认是加载parquet格式的。如果需要其他格式，需要通过format指定格式，spark内部也提供了一些常用的格式，如果你的文件不满足这些格式，你可以自定义format方式。">
+<meta property="og:description" content="spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/1610085612(1).jpg">
 <meta property="article:published_time" content="2021-01-08T05:49:39.000Z">
-<meta property="article:modified_time" content="2021-01-08T06:09:00.440Z">
+<meta property="article:modified_time" content="2021-09-17T08:30:29.183Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="bigdata">
 <meta property="article:tag" content="spark">
@@ -192,10 +192,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-01-08 13:49:39 / 修改时间：14:09:00" itemprop="dateCreated datePublished" datetime="2021-01-08T13:49:39+08:00">2021-01-08</time>
+              <time title="创建时间：2021-01-08 13:49:39" itemprop="dateCreated datePublished" datetime="2021-01-08T13:49:39+08:00">2021-01-08</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-09-17 16:30:29" itemprop="dateModified" datetime="2021-09-17T16:30:29+08:00">2021-09-17</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -218,9 +224,9 @@
 
       
         <p>spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。</p>
-<h3 id="使用load加载不同格式的数据源"><a href="#使用load加载不同格式的数据源" class="headerlink" title="使用load加载不同格式的数据源"></a>使用load加载不同格式的数据源</h3><p>load是最简单，最通用的一种加载方式。spark默认是加载parquet格式的。如果需要其他格式，需要通过format指定格式，spark内部也提供了一些常用的格式，如果你的文件不满足这些格式，你可以自定义format方式。</p>
 <a id="more"></a>
 
+<h3 id="使用load加载不同格式的数据源"><a href="#使用load加载不同格式的数据源" class="headerlink" title="使用load加载不同格式的数据源"></a>使用load加载不同格式的数据源</h3><p>load是最简单，最通用的一种加载方式。spark默认是加载parquet格式的。如果需要其他格式，需要通过format指定格式，spark内部也提供了一些常用的格式，如果你的文件不满足这些格式，你可以自定义format方式。</p>
 <h4 id="加载parquet格式"><a href="#加载parquet格式" class="headerlink" title="加载parquet格式"></a>加载parquet格式</h4><figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">val</span> userInfoFrame = sparkSession.read.load(<span class="string">&quot;/user.parquet&quot;</span>)</span><br></pre></td></tr></table></figure>
 
 
@@ -379,20 +385,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-count">21</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

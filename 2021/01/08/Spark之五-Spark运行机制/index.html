@@ -20,12 +20,12 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念 driverdirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。driver进程主要负责">
+  <meta name="description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Spark之五:Spark运行机制">
 <meta property="og:url" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/index.html">
 <meta property="og:site_name" content="乡间小鹿">
-<meta property="og:description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念 driverdirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。driver进程主要负责">
+<meta property="og:description" content="核心概念在介绍集群模式前，先来再回顾一下spark中的几个核心概念">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086868(1).jpg">
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610086966(1).jpg">
@@ -35,7 +35,7 @@
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087199(1).jpg">
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%BA%94-Spark%E8%BF%90%E8%A1%8C%E6%9C%BA%E5%88%B6/1610087456(1).jpg">
 <meta property="article:published_time" content="2021-01-08T06:17:24.000Z">
-<meta property="article:modified_time" content="2021-01-08T06:31:43.776Z">
+<meta property="article:modified_time" content="2021-09-17T08:30:53.345Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="bigdata">
 <meta property="article:tag" content="spark">
@@ -198,10 +198,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-01-08 14:17:24 / 修改时间：14:31:43" itemprop="dateCreated datePublished" datetime="2021-01-08T14:17:24+08:00">2021-01-08</time>
+              <time title="创建时间：2021-01-08 14:17:24" itemprop="dateCreated datePublished" datetime="2021-01-08T14:17:24+08:00">2021-01-08</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-09-17 16:30:53" itemprop="dateModified" datetime="2021-09-17T16:30:53+08:00">2021-09-17</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -224,9 +230,9 @@
 
       
         <h3 id="核心概念"><a href="#核心概念" class="headerlink" title="核心概念"></a>核心概念</h3><p>在介绍集群模式前，先来再回顾一下spark中的几个核心概念</p>
-<h4 id="driver"><a href="#driver" class="headerlink" title="driver"></a>driver</h4><p>dirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。<br>driver进程主要负责三件事：</p>
 <a id="more"></a>
 
+<h4 id="driver"><a href="#driver" class="headerlink" title="driver"></a>driver</h4><p>dirver是spark应用程序的起点，它是spark应用程序的执行控制器，同时也维护者spark集群中所有的状态（执行节点的状态和任务的进度）。它必须与集群管理器对接，以便实际获得资源并启动spark应用。该driver可以是集群中的某个节点，也可以是你自己的一个计算机（可以向集群提交任务）。<br>driver进程主要负责三件事：</p>
 <ul>
 <li>运行main程序</li>
 <li>将spark任务分发到executor，并监控每个executor的运行状态</li>
@@ -383,20 +389,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-count">21</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

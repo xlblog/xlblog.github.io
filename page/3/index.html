@@ -161,159 +161,6 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/" class="post-title-link" itemprop="url">Spark之三:DataSource详解</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-01-08 13:49:39 / 修改时间：14:09:00" itemprop="dateCreated datePublished" datetime="2021-01-08T13:49:39+08:00">2021-01-08</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>spark可以从多个数据源读取数据，下面介绍一下常用的数据源的读取方式。</p>
-<h3 id="使用load加载不同格式的数据源"><a href="#使用load加载不同格式的数据源" class="headerlink" title="使用load加载不同格式的数据源"></a>使用load加载不同格式的数据源</h3><p>load是最简单，最通用的一种加载方式。spark默认是加载parquet格式的。如果需要其他格式，需要通过format指定格式，spark内部也提供了一些常用的格式，如果你的文件不满足这些格式，你可以自定义format方式。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/01/08/Spark%E4%B9%8B%E4%B8%89-DataSource%E8%AF%A6%E8%A7%A3/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/" class="post-title-link" itemprop="url">Spark之二:SQL编程指南</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-01-06 09:38:55 / 修改时间：13:38:56" itemprop="dateCreated datePublished" datetime="2021-01-06T09:38:55+08:00">2021-01-06</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index"><span itemprop="name">Spark</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>SparkSQL是Spark的一个模块，它主要用来处理结构化数据。它是相对于SparkCore更高层的一个API，底层实现也是spark core的方式来实现。</p>
-<p>SparkSQL支持纯SQL的开发，也提供了一种链式编程的API，它的关键点是DataFrame。</p>
-<p>下面重点介绍一下DataFrame。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/01/06/Spark%E4%B9%8B%E4%BA%8C-SQL%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -345,7 +192,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-01-06 13:36:59" itemprop="dateModified" datetime="2021-01-06T13:36:59+08:00">2021-01-06</time>
+                <time title="修改时间：2021-09-17 16:31:05" itemprop="dateModified" datetime="2021-09-17T16:31:05+08:00">2021-09-17</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -368,7 +215,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>spark提供了一个抽象的数据集：弹性分布式数据集(RDD)。这是一个多集群数据集合，意味着它可以并行操作，每个节点操作自己所拥有的元素，所有节点的并行操作就是RDD的一个算子。<br>RDD可以从Hadoop文件系统创建(任何Hadoop能支持的文件系统，例如HDFS、HBase等)，也可以从Driver端已有的一个集合转换而来。<br>用户可以将RDD缓存在集群的内存中，以便该RDD可以被重复使用。<br>除了RDD，spark还提供了 另一个抽象概念：共享变量。spark程序在集群的多节点上运行时，每个task任务都会拷贝一份共享变量。spark支持两种类型的共享变量，分别是:广播变量(broadcast)和累加器(accumulators)。<br>下面便详细介绍rdd、broadcast 和accumulators。</p>
+          <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/2021/01/05/Spark%E4%B9%8B%E4%B8%80-RDD%E7%BC%96%E7%A8%8B%E6%8C%87%E5%8D%97/#more" rel="contents">
@@ -460,20 +307,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-count">21</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

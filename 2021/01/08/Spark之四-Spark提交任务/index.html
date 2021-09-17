@@ -20,16 +20,16 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="spark程序一般是提交在集群中来执行。大概执行流程如下：  IDEA编写spark程序 打包spark程序 上传spark程序至spark集群 通过spark-submit命令来提交spark程序 根据spark-submit命令设置的参数来分配节点（例如：集群有4个节点，运行任务需要两个节点，则只分配两个。） 每个节点启动一个jvm来运行spark程序（如果设置了executor-core，则">
+  <meta name="description" content="spark程序一般是提交在集群中来执行。大概执行流程如下：  IDEA编写spark程序 打包spark程序 上传spark程序至spark集群 通过spark-submit命令来提交spark程序 根据spark-submit命令设置的参数来分配节点（例如：集群有4个节点，运行任务需要两个节点，则只分配两个。） 每个节点启动一个jvm来运行spark程序（如果设置了executor-core">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Spark之四:Spark提交任务">
 <meta property="og:url" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%9B%9B-Spark%E6%8F%90%E4%BA%A4%E4%BB%BB%E5%8A%A1/index.html">
 <meta property="og:site_name" content="乡间小鹿">
-<meta property="og:description" content="spark程序一般是提交在集群中来执行。大概执行流程如下：  IDEA编写spark程序 打包spark程序 上传spark程序至spark集群 通过spark-submit命令来提交spark程序 根据spark-submit命令设置的参数来分配节点（例如：集群有4个节点，运行任务需要两个节点，则只分配两个。） 每个节点启动一个jvm来运行spark程序（如果设置了executor-core，则">
+<meta property="og:description" content="spark程序一般是提交在集群中来执行。大概执行流程如下：  IDEA编写spark程序 打包spark程序 上传spark程序至spark集群 通过spark-submit命令来提交spark程序 根据spark-submit命令设置的参数来分配节点（例如：集群有4个节点，运行任务需要两个节点，则只分配两个。） 每个节点启动一个jvm来运行spark程序（如果设置了executor-core">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://example.com/2021/01/08/Spark%E4%B9%8B%E5%9B%9B-Spark%E6%8F%90%E4%BA%A4%E4%BB%BB%E5%8A%A1/1610086312(1).jpg">
 <meta property="article:published_time" content="2021-01-08T06:08:07.000Z">
-<meta property="article:modified_time" content="2021-01-08T06:16:47.245Z">
+<meta property="article:modified_time" content="2021-09-17T08:30:40.655Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="bigdata">
 <meta property="article:tag" content="spark">
@@ -192,10 +192,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-01-08 14:08:07 / 修改时间：14:16:47" itemprop="dateCreated datePublished" datetime="2021-01-08T14:08:07+08:00">2021-01-08</time>
+              <time title="创建时间：2021-01-08 14:08:07" itemprop="dateCreated datePublished" datetime="2021-01-08T14:08:07+08:00">2021-01-08</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-09-17 16:30:40" itemprop="dateModified" datetime="2021-09-17T16:30:40+08:00">2021-09-17</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -217,7 +223,9 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>spark程序一般是提交在集群中来执行。大概执行流程如下：</p>
+        <a id="more"></a>
+
+<p>spark程序一般是提交在集群中来执行。大概执行流程如下：</p>
 <ul>
 <li>IDEA编写spark程序</li>
 <li>打包spark程序</li>
@@ -227,10 +235,6 @@
 <li>每个节点启动一个jvm来运行spark程序（如果设置了executor-core，则每个jvm中启动多个线程）</li>
 <li>程序运行结束</li>
 </ul>
-<a id="more"></a>
-
-
-
 <p><img src="/2021/01/08/Spark%E4%B9%8B%E5%9B%9B-Spark%E6%8F%90%E4%BA%A4%E4%BB%BB%E5%8A%A1/1610086312(1).jpg"></p>
 <p>注意：</p>
 <ol>
@@ -451,20 +455,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">23</span>
+          <span class="site-state-item-count">21</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-count">6</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-count">8</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
