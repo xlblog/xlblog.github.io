@@ -22,7 +22,7 @@
 
   <meta name="description" content="三种编程范式">
 <meta property="og:type" content="article">
-<meta property="og:title" content="2.编程范式">
+<meta property="og:title" content="架构之二:编程范式">
 <meta property="og:url" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/index.html">
 <meta property="og:site_name" content="乡间小鹿">
 <meta property="og:description" content="三种编程范式">
@@ -33,7 +33,7 @@
 <meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/4.jpg">
 <meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/5.jpg">
 <meta property="article:published_time" content="2021-09-17T08:46:09.000Z">
-<meta property="article:modified_time" content="2021-09-26T08:27:15.092Z">
+<meta property="article:modified_time" content="2021-09-26T08:47:53.149Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="架构">
 <meta name="twitter:card" content="summary">
@@ -52,7 +52,7 @@
   };
 </script>
 
-  <title>2.编程范式 | 乡间小鹿</title>
+  <title>架构之二:编程范式 | 乡间小鹿</title>
   
 
 
@@ -186,7 +186,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          2.编程范式
+          架构之二:编程范式
         </h1>
 
         <div class="post-meta">
@@ -203,7 +203,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-26 16:27:15" itemprop="dateModified" datetime="2021-09-26T16:27:15+08:00">2021-09-26</time>
+                <time title="修改时间：2021-09-26 16:47:53" itemprop="dateModified" datetime="2021-09-26T16:47:53+08:00">2021-09-26</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -345,6 +345,9 @@
 <p>函数式编程还有两个重要概念：高阶函数和闭包。所谓高阶函数，是指一种比较特殊的函数，它们可以接收函数作为输入，或者返回一个函数作为输出。闭包是由函数及其相关的引用环境组合而成的实体，即闭包 = 函数 + 引用环境。</p>
 <p>闭包有独立生命周期，能捕获上下文（环境）。站在面向对象编程的角度，闭包就是只有一个接口（方法）的对象，即将单一职责原则做到了极致。可见，闭包的设计粒度更小，创建成本更低，很容易做组合式设计。在面向对象编程中，设计粒度是一个 Object，它可能还需要拆，但你可能已经没有意识再去拆，那么上帝类大对象就会存在了，创建成本高。在函数式编程中，闭包给你一个更精细化设计的能力，一次就可以设计出单一接口的有独立生命周期的可以捕获上下文的原子对象，天然就是易于组合易于重用的，并且是易于应对变化的。<br>有一句话说的很好：闭包是穷人的对象，对象是穷人的闭包。有的语言没有闭包，你没有办法，只能拿对象去模拟闭包。又有一些语言没有对象，但单一接口不能完整表达一个业务概念，你没有办法，只能将多个闭包组合在一起当作对象用。</p>
 <p>对于函数式编程，数据是不可变的，所以一般只能通过模式匹配和递归来完成图灵计算。当程序员选择将函数式编程作为思维底座时，就需要解决如何将领域问题映射到数据和函数（程序 = 数据 + 函数）。</p>
+<h4 id="不可变性与软件架构"><a href="#不可变性与软件架构" class="headerlink" title="不可变性与软件架构"></a>不可变性与软件架构</h4><p>为什么不可变性是软件架构设计需要考虑的重点呢？答案显而易见：所有的竞争问题、死锁问题、并发更新问题都是由可变变量导致的。如果变量永远不会被更改，那么就不可能产生竞争或者并发更新问题。如果锁状态是不可变的，那就永远不会产生死锁问题。</p>
+<p>换句话说，一切并发应用遇到的问题，一切由于多线程、多处理器而引起的问题，如果没有可变变量的话都不可能发生。</p>
+<p>所以我们在设计软件时，我们需要确保自己设计的系统在多线程、多处理器环境中能稳定工作。所以，我们需要明确：不可变性是否实际可行。</p>
 <p>本文转载自：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/354528902">聊聊编程范式</a></p>
 
     </div>
@@ -364,8 +367,8 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/" rel="prev" title="1.架构的目的是什么">
-      <i class="fa fa-chevron-left"></i> 1.架构的目的是什么
+    <a href="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/" rel="prev" title="架构之一:架构的目的是什么">
+      <i class="fa fa-chevron-left"></i> 架构之一:架构的目的是什么
     </a></div>
       <div class="post-nav-item"></div>
     </div>
@@ -426,7 +429,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E7%A7%8D%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">三种编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84%E5%8C%96%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.1.</span> <span class="nav-text">结构化编程范式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.2.</span> <span class="nav-text">面向对象编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E5%BB%BA%E6%A8%A1"><span class="nav-number">1.2.1.</span> <span class="nav-text">面向对象建模</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99%E4%B8%8E%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.2.2.</span> <span class="nav-text">设计原则与模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC"><span class="nav-number">1.2.3.</span> <span class="nav-text">架构风格</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.3.</span> <span class="nav-text">函数式编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.3.1.</span> <span class="nav-text">基本设计</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E7%9A%84%E7%89%B9%E7%82%B9"><span class="nav-number">1.3.2.</span> <span class="nav-text">函数式编程的特点</span></a></li></ol></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E7%A7%8D%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">三种编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84%E5%8C%96%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.1.</span> <span class="nav-text">结构化编程范式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.2.</span> <span class="nav-text">面向对象编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E5%BB%BA%E6%A8%A1"><span class="nav-number">1.2.1.</span> <span class="nav-text">面向对象建模</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99%E4%B8%8E%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.2.2.</span> <span class="nav-text">设计原则与模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC"><span class="nav-number">1.2.3.</span> <span class="nav-text">架构风格</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.3.</span> <span class="nav-text">函数式编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.3.1.</span> <span class="nav-text">基本设计</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E7%9A%84%E7%89%B9%E7%82%B9"><span class="nav-number">1.3.2.</span> <span class="nav-text">函数式编程的特点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%8D%E5%8F%AF%E5%8F%98%E6%80%A7%E4%B8%8E%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84"><span class="nav-number">1.3.3.</span> <span class="nav-text">不可变性与软件架构</span></a></li></ol></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
