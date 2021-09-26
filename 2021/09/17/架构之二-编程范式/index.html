@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="三种编程范式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="2.编程范式">
+<meta property="og:url" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="三种编程范式">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/1.jpg">
+<meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/2.jpg">
+<meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/3.jpg">
+<meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/4.jpg">
+<meta property="og:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/5.jpg">
+<meta property="article:published_time" content="2021-09-17T08:46:09.000Z">
+<meta property="article:modified_time" content="2021-09-26T08:27:15.092Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/1.jpg">
+
+<link rel="canonical" href="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>2.编程范式 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          2.编程范式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-09-17 16:46:09" itemprop="dateCreated datePublished" datetime="2021-09-17T16:46:09+08:00">2021-09-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-09-26 16:27:15" itemprop="dateModified" datetime="2021-09-26T16:27:15+08:00">2021-09-26</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%9E%B6%E6%9E%84%E4%B9%8B%E9%81%93/" itemprop="url" rel="index"><span itemprop="name">架构之道</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="三种编程范式"><a href="#三种编程范式" class="headerlink" title="三种编程范式"></a>三种编程范式</h2><a id="more"></a>
+
+<p>有了架构的想法，那么如何才能做一个好的架构呢。有没有什么原则呢？</p>
+<p>答案是有的。其实一个良好的架构师，都具有一个良好的习惯。</p>
+<p>这儿有三个编程范式，它的目的不是告诉一个工程师如何编码，而是<strong>限制</strong>和<strong>规范</strong>工程师的编码风格。这些编程范式主要是为了告诉我们<strong>不能做什么</strong>，而不是<strong>可以做什么</strong>。</p>
+<h3 id="结构化编程范式"><a href="#结构化编程范式" class="headerlink" title="结构化编程范式"></a>结构化编程范式</h3><p>在使用低级语言编程的年代，程序员站在直接使用指令的角度去思考，习惯按照自己的逻辑去写，指令之间可能共享数据，这其中最方便的写法就是需要用到哪块逻辑就 goto 过去执行一段代码，然后再 goto 到另外一个地方。当代码规模比较大时，就难以维护了，这种编程方式便是非结构化编程。</p>
+<p><img src="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/1.jpg"></p>
+<p>迪克斯特拉（E.W.dijkstra）在 1969 年提出结构化编程，摒弃了 goto 语句，而以模块化设计为中心，将待开发的软件系统划分为若干个相互独立的模块，这样使完成每一个模块的工作变得单纯而明确，为设计一些较大的软件打下了良好的基础。按照结构化编程的观点，任何算法功能都可以通过三种基本程序结构（顺序、选择和循环）的组合来实现。</p>
+<p>结构化编程主要表现在以下三个方面：</p>
+<ul>
+<li>自顶向下，逐步求精。将编写程序看成是一个逐步演化的过程，将分析问题的过程划分成若干个层次，每一个新的层次都是上一个层次的细化。</li>
+<li>模块化。将系统分解成若干个模块，每个模块实现特定的功能，最终的系统由这些模块组装而成，模块之间通过接口传递信息。</li>
+<li>语句结构化。在每个模块中只允许出现顺序、选择和循环三种流程结构的语句。</li>
+</ul>
+<p>结构化编程一般偏底层，一般适用于追求确定性和性能的系统软件。这类软件偏静态规划，需求变化也不频繁，适合多人并行协作开发。将软件先分完层和模块，然后再确定模块间的 API，接着各组就可以同时启动开发。各组进行数据结构设计和算法流程设计，并在规定的时间内进行集成交付。分层模块化架构支撑了软件的大规模并行开发，且偏静态规划式开发交付。层与层之间限定了依赖方向，即层只能向下依赖，但同层内模块之间的依赖却无法约束，经常会出现模块之间互相依赖的情况，导致可裁剪性和可复用性过粗，响应变化能力较弱。</p>
+<p>一句话总结该编程范式：不要在任意地方书写goto语句。（java已去除）</p>
+<h3 id="面向对象编程范式"><a href="#面向对象编程范式" class="headerlink" title="面向对象编程范式"></a>面向对象编程范式</h3><p>随着软件种类的不断增多，软件规模的不断膨胀，人们希望可以更小粒度的对软件进行复用和裁剪。</p>
+<p>将全局数据拆开，并将数据与其紧密耦合的方法放在一个逻辑边界内，这个逻辑边界就是对象。用户只能访问对象的 public 方法，而看不到对象内部的数据。对象将数据和方法天然的封装在一个逻辑边界内，可以整体直接复用而不用做任何裁剪或隐式关联。</p>
+<p>人们将领域问题又开始映射成实体及关系（程序 = 实体 + 关系），而不再是数据结构和算法（过程）了，这就是面向对象编程，核心特点是封装、继承和多态。</p>
+<p>封装是面向对象的根基，它将紧密相关的信息放在一起，形成一个逻辑单元。我们要隐藏数据，基于行为进行封装，最小化接口，不要暴露实现细节。</p>
+<p>继承分为两种，即实现继承和接口继承。实现继承是站在子类的视角看问题，而接口继承是站在父类的视角看问题。很多程序员把实现继承当作一种代码复用的方式，但这并不是一种好的代码复用方式，推荐使用组合。</p>
+<p>对于面向对象而言，多态至关重要，接口继承是常见的一种多态的实现方式。正因为多态的存在，软件设计才有了更大的弹性，能够更好地适应未来的变化。只使用封装和继承的编程方式，我们称之为基于对象编程，而只有把多态加进来，才能称之为面向对象编程。可以这么说，面向对象设计的核心就是多态的设计。</p>
+<h4 id="面向对象建模"><a href="#面向对象建模" class="headerlink" title="面向对象建模"></a>面向对象建模</h4><p>面向对象编程诞生后，程序员需要从领域问题映射到实体和关系这种模型，后续再映射到图灵机模型就交给面向对象编程语言的编译器来完成。于是问题来了，领域千差万别，如何能将领域问题高效简洁的映射到实体和关系？这时 UML（Unified Model Language，统一建模语言）应运而生，是由一整套图表组成的标准化建模语言。可见，面向对象极大的推进了软件建模的发展。</p>
+<p><img src="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/2.jpg"></p>
+<p>现在有一些新的程序员对于 UML 不太熟悉，建议至少要掌握两个 UML 图，即类图和序列图：</p>
+<ul>
+<li>类图是静态视图，体现类和结构</li>
+<li>序列图是动态视图，体现对象和交互</li>
+</ul>
+<p>软件设计一般从动态图开始，在动态交互中会把相对比较固定的模式下沉到静态视图里，然后形成类和结构。在看代码的时候，通过类和结构就知道一部分对象和交互的信息了，可以约束及校验对象和交互的关系。</p>
+<p>面向对象建模一般分为四个步骤：</p>
+<ul>
+<li>需求分析建模</li>
+<li>面向对象分析（OOA）</li>
+<li>面向对象设计（OOD）</li>
+<li>面向对象编码（OOP）</li>
+</ul>
+<p>在 OOA 阶段，分析师产出分析模型。同理，在 OOD 阶段，设计师产出设计模型。</p>
+<p><img src="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/3.jpg"></p>
+<p>分析模型和设计模型的分离，会导致分析师头脑中的业务模型和设计师头脑中的业务模型不一致，通常要映射一下。伴随着重构和 fix bug 的进行，设计模型不断演进，和分析模型的差异越来越大。有些时候，分析师站在分析模型的角度认为某个需求较容易实现，而设计师站在设计模型的角度认为该需求较难实现，那么双方都很难理解对方的模型。长此以往，在分析模型和设计模型之间就会存在致命的隔阂，从任何活动中获得的知识都无法提供给另一方。<br>Eric Evans 在 2004 年出版了 DDD（领域驱动设计, Domain-Driven Design）的开山之作《领域驱动设计——软件核心复杂性应对之道》，抛弃将分析模型与设计模型分离的做法，寻找单个模型来满足两方面的要求，这就是领域模型。许多系统的真正复杂之处不在于技术，而在于领域本身，在于业务用户及其执行的业务活动。如果在设计时没有获得对领域的深刻理解，没有将复杂的领域逻辑以模型的形式清晰地表达出来，那么无论我们使用多么先进多么流行的平台和基础设施，都难以保证项目的真正成功。</p>
+<p>DDD 是对面向对象建模的演进，核心是建立正确的领域模型：</p>
+<p><img src="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/4.jpg"></p>
+<p>DDD 的精髓是对边界的划分和控制，共有四重边界：</p>
+<ul>
+<li>第一重边界是在问题空间分离子域，包括核心域，支撑域和通用域</li>
+<li>第二重边界是在解决方案空间拆分 BC（限界上下文，Bounded Context），BC 之间的协作关系通过 Context Mapping（上下文映射） 来表达</li>
+<li>第三重边界是在 BC 内部分离业务复杂度和技术复杂度，形成分层架构，包括用户界面层，应用层，领域层和基础设施层</li>
+<li>第四重边界是在领域层引入聚合这一最小的设计单元，它从完整性与一致性对领域模型进行了有效的隔离，聚合内部包括实体、值对象、领域服务、工厂和仓储等设计元素</li>
+</ul>
+<h4 id="设计原则与模式"><a href="#设计原则与模式" class="headerlink" title="设计原则与模式"></a>设计原则与模式</h4><p>设计原则很多，程序员最常使用的是 SOLID 原则，它是一套比较成体系的设计原则。它不仅可以指导我们设计模块（类），还可以被当作一把尺子，来衡量我们设计的有效性。（这些原则，在后面会再次介绍。）<br>SOLID 原则是五个设计原则首字母的缩写，它们分别是：</p>
+<ul>
+<li>单一职责原则（Single responsibility principle，SRP）：一个类应该有且仅有一个变化的原因</li>
+<li>开放封闭原则（Open–closed principle，OCP）：软件实体（类、模块、函数）应该对扩展开放，对修改封闭</li>
+<li>里氏替换原则（Liskov substitution principle，LSP）：子类型（subtype）必须能够替换其父类型（base type）</li>
+<li>接口隔离原则（Interface segregation principle，ISP）：不应强迫使用者依赖于它们不用的方法</li>
+<li>依赖倒置原则（Dependency inversion principle，DIP）：高层模块不应依赖于低层模块，二者应依赖于抽象；抽象不应依赖于细节，细节应依赖于抽象</li>
+</ul>
+<p>前面我们提到，对于面向对象来说，核心是多态的设计，我们看看 SOLID 原则如何指导多态设计：</p>
+<ul>
+<li>单一职责原则：通过接口分离变与不变，隔离变化</li>
+<li>开放封闭原则：多态的目标是系统对于变化的扩展而非修改</li>
+<li>里氏替换原则：接口设计要达到细节隐藏的圆满效果</li>
+<li>接口隔离原则：面向不同客户的接口要分离开</li>
+<li>依赖倒置原则：接口的设计和规定者应该是接口的使用方</li>
+</ul>
+<p>除过设计原则，我们还要掌握常用的设计模式。设计模式是针对一些普遍存在的问题给出的特定解决方案，使面向对象的设计更加灵活和优雅，从而复用性更好。学习设计模式不仅仅要学习代码怎么写，更重要的是要了解模式的应用场景。不论那种设计模式，其背后都隐藏着一些“永恒的真理”，这个真理就是设计原则。的确，还有什么比原则更重要呢？就像人的世界观和人生观一样，那才是支配你一切行为的根本。可以说，设计原则是设计模式的灵魂。</p>
+<p>守破离是武术中一种渐进的学习方法：</p>
+<ul>
+<li>第一步——守，遵守规则直到充分理解规则并将其视为习惯性的事</li>
+<li>第二步——破，对规则进行反思，寻找规则的例外并“打破”规则</li>
+<li>第三步——离，在精通规则之后就会基本脱离规则，抓住其精髓和深层能量</li>
+</ul>
+<p>设计模式的学习也是一个守破离的过程：</p>
+<ul>
+<li>第一步——守，在设计和应用中模仿既有设计模式，在模仿中要学会思考</li>
+<li>第二步——破，熟练使用基本设计模式后，创造新的设计模式</li>
+<li>第三步——离，忘记所有设计模式，在设计中潜移默化的使用</li>
+</ul>
+<h4 id="架构风格"><a href="#架构风格" class="headerlink" title="架构风格"></a>架构风格</h4><p>面向对象设计大行其道以后，组件化或服务化架构风格开始流行起来。组件化或服务化架构风格参考了对象设计：对象有生命周期，是一个逻辑边界，对外提供 API；组件或服务也有生命周期，也是一个逻辑边界，也对外提供 API。在这种架构中，应用依赖导致原则，不论高层还是低层都依赖于抽象，好像整个分层架构被推平了，没有了上下层的关系。不同的客户通过“平等”的方式与系统交互，需要新的客户吗？不是问题，只需要添加一个新的适配器将客户输入转化成能被系统 API 所理解的参数就行。同时，对于每种特定的输出，都有一个新建的适配器负责完成相应的转化功能。</p>
+<p><img src="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/5.jpg"></p>
+<h3 id="函数式编程范式"><a href="#函数式编程范式" class="headerlink" title="函数式编程范式"></a>函数式编程范式</h3><p>与结构化编程与面向对象编程不同，函数式编程对很多人来说要陌生一些。你可能知道，C++ 和 Java 已经引入了 Lambda 表达式，目的就是为了支持函数式编程。函数式编程中的函数不是结构化编程中的函数，而是数学中的函数，结构化编程中的函数是一个过程（Procedure）。很多程序员都在纳闷，一会要面向对象编程，一会又面向过程编程，其实不是的，这儿的函数不是指C语言里面的那个函数，而是数学中的函数。</p>
+<h4 id="基本设计"><a href="#基本设计" class="headerlink" title="基本设计"></a>基本设计</h4><p>函数式编程的起源是数学家 Alonzo Church 发明的 Lambda 演算（Lambda calculus，也写作 λ-calculus）。所以，Lambda 这个词在函数式编程中经常出现，你可以把它简单地理解成匿名函数。</p>
+<h4 id="函数式编程的特点"><a href="#函数式编程的特点" class="headerlink" title="函数式编程的特点"></a>函数式编程的特点</h4><ul>
+<li><p>函数是一等公民</p>
+<blockquote>
+<p>一等公民的含义是：</p>
+<ol>
+<li>它可以按需创建</li>
+<li>它可以存储在数据结构中</li>
+<li>它可以当作参数传给另一个函数</li>
+<li>它可以当作另一个函数的返回值</li>
+</ol>
+</blockquote>
+</li>
+<li><p>它是一个纯函数</p>
+<blockquote>
+<p>纯函数是符合下面两点的函数：</p>
+<ol>
+<li>对于相同的输入，返回相同的输出</li>
+<li>没有副作用</li>
+</ol>
+</blockquote>
+</li>
+<li><p>惰性求值</p>
+</li>
+<li><p>不可变数据</p>
+<blockquote>
+<p>函数式编程的不变性主要体现在值和纯函数上。值类似于DDD中的值对象，一旦创建，就不能修改，除非重新创建。</p>
+</blockquote>
+</li>
+<li><p>递归</p>
+<blockquote>
+<p>函数式编程用递归作为流程控制的机制，一般为尾递归。</p>
+</blockquote>
+</li>
+</ul>
+<p>函数式编程还有两个重要概念：高阶函数和闭包。所谓高阶函数，是指一种比较特殊的函数，它们可以接收函数作为输入，或者返回一个函数作为输出。闭包是由函数及其相关的引用环境组合而成的实体，即闭包 = 函数 + 引用环境。</p>
+<p>闭包有独立生命周期，能捕获上下文（环境）。站在面向对象编程的角度，闭包就是只有一个接口（方法）的对象，即将单一职责原则做到了极致。可见，闭包的设计粒度更小，创建成本更低，很容易做组合式设计。在面向对象编程中，设计粒度是一个 Object，它可能还需要拆，但你可能已经没有意识再去拆，那么上帝类大对象就会存在了，创建成本高。在函数式编程中，闭包给你一个更精细化设计的能力，一次就可以设计出单一接口的有独立生命周期的可以捕获上下文的原子对象，天然就是易于组合易于重用的，并且是易于应对变化的。<br>有一句话说的很好：闭包是穷人的对象，对象是穷人的闭包。有的语言没有闭包，你没有办法，只能拿对象去模拟闭包。又有一些语言没有对象，但单一接口不能完整表达一个业务概念，你没有办法，只能将多个闭包组合在一起当作对象用。</p>
+<p>对于函数式编程，数据是不可变的，所以一般只能通过模式匹配和递归来完成图灵计算。当程序员选择将函数式编程作为思维底座时，就需要解决如何将领域问题映射到数据和函数（程序 = 数据 + 函数）。</p>
+<p>本文转载自：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/354528902">聊聊编程范式</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%9E%B6%E6%9E%84/" rel="tag"># 架构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/" rel="prev" title="1.架构的目的是什么">
+      <i class="fa fa-chevron-left"></i> 1.架构的目的是什么
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E7%A7%8D%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">三种编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E6%9E%84%E5%8C%96%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.1.</span> <span class="nav-text">结构化编程范式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.2.</span> <span class="nav-text">面向对象编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E5%BB%BA%E6%A8%A1"><span class="nav-number">1.2.1.</span> <span class="nav-text">面向对象建模</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99%E4%B8%8E%E6%A8%A1%E5%BC%8F"><span class="nav-number">1.2.2.</span> <span class="nav-text">设计原则与模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC"><span class="nav-number">1.2.3.</span> <span class="nav-text">架构风格</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F"><span class="nav-number">1.3.</span> <span class="nav-text">函数式编程范式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.3.1.</span> <span class="nav-text">基本设计</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BC%96%E7%A8%8B%E7%9A%84%E7%89%B9%E7%82%B9"><span class="nav-number">1.3.2.</span> <span class="nav-text">函数式编程的特点</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">22</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">6</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

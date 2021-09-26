@@ -23,21 +23,21 @@
   <meta name="description" content="前言最近对公司内部项目做了一些重构，对项目架构这一块也有了一定的理解，结合在企业内部的实际项目，来记录一下个人在架构这块学到的一些经验和知识。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="1.架构的目的是什么">
-<meta property="og:url" content="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/index.html">
+<meta property="og:url" content="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/index.html">
 <meta property="og:site_name" content="乡间小鹿">
 <meta property="og:description" content="前言最近对公司内部项目做了一些重构，对项目架构这一块也有了一定的理解，结合在企业内部的实际项目，来记录一下个人在架构这块学到的一些经验和知识。">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png">
-<meta property="og:image" content="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152617.png">
-<meta property="og:image" content="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152911.png">
+<meta property="og:image" content="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png">
+<meta property="og:image" content="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152617.png">
+<meta property="og:image" content="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152911.png">
 <meta property="article:published_time" content="2021-09-14T06:42:26.000Z">
 <meta property="article:modified_time" content="2021-09-17T08:27:32.637Z">
 <meta property="article:author" content="李忠友">
 <meta property="article:tag" content="架构">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png">
+<meta name="twitter:image" content="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png">
 
-<link rel="canonical" href="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/">
+<link rel="canonical" href="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/">
 
 
 <script id="page-configurations">
@@ -171,7 +171,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -230,14 +230,14 @@
 
 
 <h2 id="案例分析"><a href="#案例分析" class="headerlink" title="案例分析"></a>案例分析</h2><p>在写一个新的项目之前，先来看一个例子。</p>
-<p><img src="/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png"></p>
+<p><img src="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/1631862441.png"></p>
 <p>这个是某个开发团队规模的增长图。通过图能直接看到，团队人数在扩张，也能间接的反应，该团队的业务在越来越多，越来越重要。</p>
 <p>而该团队的生产效率如何呢？</p>
-<p><img src="/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152617.png"></p>
+<p><img src="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152617.png"></p>
 <p>这个图是该团队的生产效率图，这明显是有问题的。</p>
 <p>伴随着产品的每次发布，公司的工程师团队在持续扩大，而代码增长的行数却几乎没变。说明该团队大部分时间都花在了维护系统稳定上，而不是去开发新的产品。</p>
 <p>再来看一个图。</p>
-<p><img src="/2021/09/14/1-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152911.png"></p>
+<p><img src="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/20210917152911.png"></p>
 <p>该图是每行代码的变更成本，显然，该团队的维护成本要比开发成本高很多，一个变动会引起一堆意想不到的问题。即使该公司的盈利很高，如果按照图中的趋势发展下去，整个公司的利润都会被该团队一点点榨干。因为技术人员的花费会越来越高。</p>
 <p>这就是一个典型的乱麻系统。它前期虽然给公司盈利了，但后期却在榨取着公司的利润。这种系统一般是没有经过设计，匆忙被构建起来的，然后为了加快发布速度，拼命的往团队里加入新人。</p>
 <p>那么这种不管设计，只管业务，不断添加新人的方式，究竟能不能加快产品的研发呢？</p>
@@ -274,7 +274,10 @@
     <a href="/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/" rel="prev" title="微服务业务监控和行为分析怎么做？试试日志埋点">
       <i class="fa fa-chevron-left"></i> 微服务业务监控和行为分析怎么做？试试日志埋点
     </a></div>
-      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/" rel="next" title="2.编程范式">
+      2.编程范式 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
       </footer>
     
@@ -347,7 +350,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">21</span>
+          <span class="site-state-item-count">22</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
