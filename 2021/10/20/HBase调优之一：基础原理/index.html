@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="HBase概述">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HBase调优之一：基础原理">
+<meta property="og:url" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="HBase概述">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015151607926.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015160824404.png">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/6954572-06525b1b986d86bc.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/599/format/webp">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/6954572-84f61c94726411d1.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/6954572-e97ddeda7f31df34.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/6954572-a8c7f7ce43e548ae.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp">
+<meta property="og:image" content="https://upload-images.jianshu.io/upload_images/6954572-d139022d1086dd09.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp">
+<meta property="og:image" content="https://pic2.zhimg.com/80/v2-37576525d52091fd713bb13556c92861_720w.jpg">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015173138910.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015174508665.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211016154943109.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017161704965.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017162050367.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163517850.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163526902.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163815343.png">
+<meta property="og:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017195659800.png">
+<meta property="article:published_time" content="2021-10-20T07:32:04.000Z">
+<meta property="article:modified_time" content="2021-10-20T07:35:25.620Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="hbase">
+<meta property="article:tag" content="bigdata，性能调优">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015151607926.png">
+
+<link rel="canonical" href="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>HBase调优之一：基础原理 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          HBase调优之一：基础原理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-10-20 15:32:04 / 修改时间：15:35:25" itemprop="dateCreated datePublished" datetime="2021-10-20T15:32:04+08:00">2021-10-20</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="HBase概述"><a href="#HBase概述" class="headerlink" title="HBase概述"></a>HBase概述</h2><a id="more"></a>
+
+<h3 id="数据模型"><a href="#数据模型" class="headerlink" title="数据模型"></a>数据模型</h3><p>HBase是一个数据库，它具有关系型数据库所具有的：表、行、列。</p>
+<p>从逻辑视图来看，它是以关系型数据库中的“表”形式组织的。</p>
+<p>从物理视图看，它是一个Map，由键值构成。</p>
+<h4 id="逻辑视图"><a href="#逻辑视图" class="headerlink" title="逻辑视图"></a>逻辑视图</h4><p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015151607926.png" alt="image-20211015151607926"></p>
+<p>逻辑视图中的几个概念：</p>
+<ul>
+<li><p>table</p>
+<blockquote>
+<p>表名</p>
+</blockquote>
+</li>
+<li><p>row</p>
+<blockquote>
+<p>一行数据，它由一个唯一rowkey、多个column组成。</p>
+</blockquote>
+</li>
+<li><p>column</p>
+<blockquote>
+<p>一列数据，它由column family 和 qualifier组成。其中，column family在创建表时指定，不能随意增减。qualifier在写数据时动态生成，可以无限扩展。</p>
+</blockquote>
+</li>
+<li><p>timestamp</p>
+<blockquote>
+<p>时间戳，用于标记某个cell的版本。数据写入时自动分配一个时间戳。</p>
+</blockquote>
+</li>
+<li><p>cell</p>
+<blockquote>
+<p>单元格，由：row、column、timestamp、type、value组成。</p>
+</blockquote>
+</li>
+</ul>
+<h4 id="物理视图"><a href="#物理视图" class="headerlink" title="物理视图"></a>物理视图</h4><p>从逻辑视图看，它是一个二维表。从物理视图看，它是一个Map。</p>
+<p>其中，Key是一个复合值，由：rowkey、column family、qualifier、type和timestamp组成。</p>
+<p>以上面的逻辑视图举例：</p>
+<p>行键”com.cnn.www”以及列“anchor:cnnsi.com”在HBase中实际存储结构如下：</p>
+<p>{“com.cnn.www”,”anchor”,”cnnsi.com”,”put”,”t9”} -&gt; “CNN”</p>
+<p>HBase中是以列簇存储的，同一个列簇下的列存储在同一个目录下。</p>
+<h3 id="体系结构"><a href="#体系结构" class="headerlink" title="体系结构"></a>体系结构</h3><p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015160824404.png" alt="image-20211015160824404"></p>
+<h3 id="系统特性"><a href="#系统特性" class="headerlink" title="系统特性"></a>系统特性</h3><p>优势：</p>
+<ul>
+<li><p>容量巨大</p>
+<blockquote>
+<p>由于底层存储在HDFS，可以存储千亿行、百万列的数据规模。在这个规模下，读写性能并不会有明显的抖动。</p>
+</blockquote>
+</li>
+<li><p>易扩展</p>
+<blockquote>
+<p>底层HDFS扩容简单，HBase RegionServer扩容也简单。由master来负责将Region均匀分配。</p>
+</blockquote>
+</li>
+<li><p>稀疏性</p>
+<blockquote>
+<p>由于它的存储原理，为空的单元格不占任何空间。而关系型数据库会预留一定的空间。</p>
+</blockquote>
+</li>
+<li><p>高性能</p>
+<blockquote>
+<p>写性能高</p>
+</blockquote>
+</li>
+<li><p>多版本</p>
+<blockquote>
+<p>同一个KV可以有多个版本，在实际使用时可以根据需求选择历史版本或最新版本。</p>
+</blockquote>
+</li>
+<li><p>支持过期</p>
+<blockquote>
+<p>对于需要定期清理的场景，HBase可以设置过期时间，达到自动清理。</p>
+</blockquote>
+</li>
+</ul>
+<p>HBase缺点：</p>
+<ul>
+<li>不支持复杂的查询，例如group by</li>
+<li>没有二级索引</li>
+<li>不支持全局跨行事务</li>
+</ul>
+<h2 id="HBase基础数据结构"><a href="#HBase基础数据结构" class="headerlink" title="HBase基础数据结构"></a>HBase基础数据结构</h2><h3 id="跳跃表"><a href="#跳跃表" class="headerlink" title="跳跃表"></a>跳跃表</h3><p>跳跃表是一种能高效实现插入、删除、查找的内存数据结构。</p>
+<p>它的逻辑是：在链表的基础上增加多层索引。</p>
+<p>例如：</p>
+<p>链表中插入一个数据，先定位在哪个位置插入，再进行插入。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6954572-06525b1b986d86bc.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/599/format/webp" alt="img"></p>
+<p>定位过程比较耗时。为了能提高定位，可以用空间换时间，提取出某些关键点，由索引层来定位。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6954572-84f61c94726411d1.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp" alt="img"></p>
+<p>这样提取一层，查找效率就能减半。如果再在第一层的基础上提取一层，查找效率又能减半。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6954572-e97ddeda7f31df34.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp" alt="img"></p>
+<p>这就是跳跃表。这个索引值是如何来的呢，每次插入数据时，通过“抛硬币”的方式来决定是否将它升级为索引节点。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6954572-a8c7f7ce43e548ae.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp" alt="img"></p>
+<p><img src="https://upload-images.jianshu.io/upload_images/6954572-d139022d1086dd09.jpeg?imageMogr2/auto-orient/strip%7CimageView2/2/w/640/format/webp" alt="img"></p>
+<h3 id="LSM树"><a href="#LSM树" class="headerlink" title="LSM树"></a>LSM树</h3><p>LSM树的名字会产生一个错误的印象，以为它和B+树、红黑树一样是一个严格的树状结构，其他它是一种存储结构（决定怎么来存储数据）。它将数据存储做了分层，内存存储和文件存储，目的是牺牲读性能来提高写性能。</p>
+<p><img src="https://pic2.zhimg.com/80/v2-37576525d52091fd713bb13556c92861_720w.jpg" alt="img"></p>
+<p>MemTable是内存中的一个数据结构，在HBase中使用的是跳跃表（ConcurrentSkipListMap）。</p>
+<p>Immutable MemTable，是MemTable达到一定大小后转换来的，它是不会再接收写请求的，是要等待flush到磁盘的一个中间状态。在HBase中，也是一个跳跃表。（后面会介绍）</p>
+<p>SSTable(Sorted String Table)，是LSM树在磁盘中的数据结构，HBase中是KV数据结构。</p>
+<h2 id="RegionServer的核心"><a href="#RegionServer的核心" class="headerlink" title="RegionServer的核心"></a>RegionServer的核心</h2><p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015173138910.png" alt="image-20211015173138910"></p>
+<p>RegionServer是HBase系统响应用户读写请求的工作节点组件。</p>
+<h3 id="HLog"><a href="#HLog" class="headerlink" title="HLog"></a>HLog</h3><p>HBase中<strong>故障恢复</strong>和<strong>主从复制</strong>都是基于HLog实现。写入数据时，是先写入HLog，再写入MemStore。</p>
+<p>默认情况下，每个RegionServer拥有一个HLog。如果HLog遇到瓶颈，可以开启多个HLog。</p>
+<p>配置方式：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 开启多wal功能，目前线上是开启的</span></span><br><span class="line"><span class="meta">hbase.wal.provider</span>=<span class="string">multiwal</span></span><br><span class="line"><span class="comment"># 设置wal管道数量，可提高WAL并行度。目前线上是1。</span></span><br><span class="line"><span class="meta">hbase.wal.regiongrouping.numgroups</span>=<span class="string">2</span></span><br></pre></td></tr></table></figure>
+
+
+<p>HLog文件并不会永久存储，它在某个时间会失效，最终被删除。</p>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211015174508665.png" alt="image-20211015174508665"></p>
+<p>HBase后台有一个线程，每隔一小时会进行日志滚动。它的内部逻辑是：停止当前日志文件的写入，创建一个新的日志文件接收数据。滚动时间可由参数配置：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">hbase.regionserver.logroll.period</span> = <span class="string">1</span></span><br></pre></td></tr></table></figure>
+<p>当写入的数据从MemStore刷写到磁盘以后，对应的日志数据会失效。当某个HLog文件中的数据全部落盘以后，这个HLog就会失效。</p>
+<p>HBase后台还有一个线程，去检查失效的log文件，去把它们删除。当失效超过某个时间，则删除。</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">hbase.master.logcleaner.ttl</span> = <span class="string">1分钟</span></span><br></pre></td></tr></table></figure>
+
+
+<h3 id="BlockCache"><a href="#BlockCache" class="headerlink" title="BlockCache"></a>BlockCache</h3><p>为了避免读数据时存在大量的IO操作，HBase提供了一个缓存机制。客户端读取某个Block，首先会检查该Block是否存在于BlockCache中，如果在，就直接从BlockCache中取，如果不在，则从HFile中加载，加载完成后，放入BlockCache中。</p>
+<p>Block是HBase中最小的数据读取单元，在HFile中有一个叫DataBlock的，主要用来存放数据。</p>
+<h3 id="MemStore"><a href="#MemStore" class="headerlink" title="MemStore"></a>MemStore</h3><p>HBase中的一张表会被水平切分成多个Region，每个Region负责自己区域的数据读写请求。切分的目的主要是为了并发写入。</p>
+<p>数据写入HBase时，先写入HLog，再写入MemStore，当MemStore中的数据大小超过阈值之后就会刷写到磁盘，生成一个新的HFile文件。</p>
+<p>MemStore的内部结构是一个跳跃表。继承了ConcurrentSkipListMap。它内部有两个ConcurrentSkipListMap，当MapA写满后，会创建一个MapB来接收新的请求，而MapA则刷写到磁盘中去。刷写完成以后MapA继续可用。</p>
+<h3 id="HFIle"><a href="#HFIle" class="headerlink" title="HFIle"></a>HFIle</h3><p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211016154943109.png" alt="image-20211016154943109"></p>
+<ul>
+<li><p>Scanned Block部分</p>
+<blockquote>
+<p>这部分由3种数据块组成。Data Block，Leaf Index Block和Bloom Block。</p>
+<p>Data Block中存放的是KV，leaf index block是存储索引树的叶子节点数据。Bloom Block存储的是过滤器相关的数据。</p>
+<p>扫描时，这三部分都会被读取。</p>
+</blockquote>
+</li>
+<li><p>Non-Scanned Block</p>
+<blockquote>
+<p>扫描时，不会被读取。主要包含：meta block 和 intermediate level data index blocks</p>
+</blockquote>
+</li>
+<li><p>Load-on-open</p>
+<blockquote>
+<p>RegionServer打开HFile时直接加载到内存，包括FileInfo、MetaBlock、RootDataIndex和MetaIndexBlock</p>
+</blockquote>
+</li>
+<li><p>Trailer部分</p>
+<blockquote>
+<p>记录HFIle版本信息，以及各部分的偏移值和寻址信息</p>
+</blockquote>
+</li>
+</ul>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017161704965.png" alt="image-20211017161704965"></p>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017162050367.png" alt="image-20211017162050367"></p>
+<h2 id="MemStore-Flush"><a href="#MemStore-Flush" class="headerlink" title="MemStore Flush"></a>MemStore Flush</h2><p>Flush触发时机：</p>
+<ul>
+<li><p>MemStore级别</p>
+<blockquote>
+<p>当Region中的任何一个MemStore大小达到上限(hbase.hregion.memstore.flush.size)</p>
+</blockquote>
+</li>
+<li><p>Region级别</p>
+<blockquote>
+<p>当Region中所有MemStore的大小总和达到了上限</p>
+<p>hbase.hregion.memstore.block.multiplier * hbase.hregion.memstore.flush.size</p>
+</blockquote>
+</li>
+<li><p>RegionServer级别</p>
+<blockquote>
+<p>当RegionServer中MemStore的大小总和超过低水位阈值</p>
+<p>hbase.regionserver.global.memstore.size.lower.limit * hbase.regionserver.global.memstore.size</p>
+</blockquote>
+</li>
+<li><p>当一个RegionServer中HLog数量达到上限</p>
+<blockquote>
+<p>hbase.regionserver.maxlogs</p>
+</blockquote>
+</li>
+<li><p>定期触发MemStore</p>
+<blockquote>
+<p>默认一小时，确保MemStore不会长时间没有持久化</p>
+</blockquote>
+</li>
+<li><p>手动执行flush</p>
+</li>
+</ul>
+<p>执行流程：</p>
+<p>prepare阶段：遍历MemStore，将MemStore中当前数据集做一个快照，然后再建一个新的ConcurrentSkipListMap用来接收写入的新数据。</p>
+<p>flush阶段：将prepare阶段生成的快照持久化到临时文件，存放在./tmp目录下</p>
+<p>commit阶段：将flush阶段生成的临时文件移动到指定的ColumnFamily目录下</p>
+<p>MemStore Flush操作不会对业务产生影响。如果是RegionServer级别的flush，会阻塞RegionServer上写入数据。</p>
+<h2 id="Compaction实现原理"><a href="#Compaction实现原理" class="headerlink" title="Compaction实现原理"></a>Compaction实现原理</h2><p>HBase中小文件数量过多，会引起读取效率降低，为了保证读取效率，HBase提供了一种机制叫：Compaction。</p>
+<p>Compaction是从<strong>一个Region的一个Store中选择部分HFile文件</strong>进行合并。合并的原理是：先从这些待合并的数据文件中依次读出KeyValue，再由小到大排序（归并）后写入一个新的文件。</p>
+<p>HBase会根据合并规模将Compaction分为两类：Minor Compaction 和 Major Compaction。</p>
+<ul>
+<li><p>Minor Compaction</p>
+<blockquote>
+<p>选择部分小的、相邻的HFile，将他们合并为一个更大的HFile。</p>
+</blockquote>
+</li>
+<li><p>Major Compaction</p>
+<blockquote>
+<p>将一个Store中所有的HFile合并成一个HFile。这个过程会清理三类无意义的数据：被删除的数据、TTL过期数据、版本号超过设定版本号的数据。</p>
+</blockquote>
+</li>
+</ul>
+<p>不合并和合并后的查询对比图：</p>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163517850.png" alt="image-20211017163517850"></p>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163526902.png" alt="image-20211017163526902"></p>
+<p>Compaction在执行过程中有个比较明显的缺点：</p>
+<p>Compaction操作重写文件会带来更大的带宽压力和短时间的IO压力。因为需要从HDFS其他节点去读取数据。</p>
+<h3 id="Compaction操作流程"><a href="#Compaction操作流程" class="headerlink" title="Compaction操作流程"></a>Compaction操作流程</h3><p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017163815343.png" alt="image-20211017163815343"></p>
+<h4 id="Compaction触发条件"><a href="#Compaction触发条件" class="headerlink" title="Compaction触发条件"></a>Compaction触发条件</h4><p>Compaction触发条件有三种，任意一种满足，就进行Compaction。</p>
+<ul>
+<li><p>MemStore Flush</p>
+<blockquote>
+<p>MemStore Flush会产生HFile（每次Flush都是一个新的HFile），每次执行完flush操作后都会对<strong>当前Store（Region）</strong>的文件数进行判断，当Store中的文件数大于hbase.store.compactionThreshold，就会触发Compaction。默认3个。Compaction都是以Store为单位进行的，由于我们每个表都有一个列簇，所以，基本可以理解为，Compaction是以某个Region为单位进行的。</p>
+</blockquote>
+</li>
+<li><p>后台线程周期性检查</p>
+<blockquote>
+<p>RegionServer在后台有一个叫CompactionChecker的线程，会定期检查每个Store（Region）是否需要进行Compaction。检查周期：</p>
+<p>hbase.server.thread.wakefrequency(10s) * hbase.server.compactchecker.interval.multiplier(1000)</p>
+<p>先检查Store中文件数是否满足minor compaction的阈值，满足就进行minoer compaction。如果不满足，再检查Major Compaction条件（HFile文件最早更新时间是否早于hbase.hregion.majorcompaction）。</p>
+</blockquote>
+</li>
+<li><p>手动触发</p>
+</li>
+</ul>
+<h4 id="HFile选择策略"><a href="#HFile选择策略" class="headerlink" title="HFile选择策略"></a>HFile选择策略</h4><p>HBase在进行compaction前，需要先进行筛选。基本流程如下：</p>
+<ul>
+<li><p>排除当前正在执行Compaction的文件以及比这些文件更新的所有文件</p>
+</li>
+<li><p>排除某些过大的文件。</p>
+<blockquote>
+<p>配置项：hbase.hstore.compaction.max.size，默认：Long.MAX_VALUE。意味着，所有过大的文件都会进行compaction。过大会带来更大的IO消耗</p>
+</blockquote>
+</li>
+</ul>
+<p>经过排除，判断留下来的候选文件是否满足Major Compaction条件。满足任一条件：</p>
+<ul>
+<li>用户强制执行Major Compaction</li>
+<li>长时间没有执行Major Compaction，且候选文件数小于：hbase.hstore.compaction.max（10）</li>
+<li>Store中包含reference文件。reference文件是region分裂产生的临时文件</li>
+</ul>
+<p>如果major compaction满足了条件，则要进行Major Compaction，当前Store中的所有HFile都会被合并。如果不满足，则进行minor compaction。minor compaction有两种选择策略，分别是：RatioBasedCompactionPolicy和ExploringCompactionPolicy。后者是在前者的基础上做了一点优化。</p>
+<p><strong>RatioBasedCompactionPolicy</strong></p>
+<p>从老到新逐一扫描所有候选文件，满足其中一个便停止扫描</p>
+<ol>
+<li>当前文件大小 &lt; 比当前文件新的所有文件大小总和 * ratio，其中，ratio是一个可变的比例，高峰期：1.2，非高峰期：5。高峰期和非高峰期可由参数配置，高峰期区间：[hbase.offpeak.start.hour, hbase.offpeak.end.hour]</li>
+<li>当前所剩候选文件 &lt;= hbase.store.compaction.min（3）</li>
+</ol>
+<p>停止扫描以后，待合并的文件就选择出来了：当前扫描文件以及比它更新的所有文件。</p>
+<p><strong>ExploringCompactionPolicy</strong></p>
+<p>该策略和上面的相同，不同的是，Ratio策略在找到一个合适的文件集合之后就停止扫描，而Exploring策略会记录所有合适的文件集合，并在这些文件集合中寻找最优解。最优解是：待合并文件数最多或者待合并文件数相同的情况下文件较小。</p>
+<h4 id="合并HFile"><a href="#合并HFile" class="headerlink" title="合并HFile"></a>合并HFile</h4><ul>
+<li>分别读取待合并的HFile文件的KeyValue，进行归并排序后，写入./tmp目录下的临时文件中</li>
+<li>将临时文件移动到对应的Store目录下</li>
+<li>将Compaction的输入文件路径和输出文件路径封装为KV写入HLog，并打上Compaction。</li>
+<li>将对应Store目录下的Compaction输入文件全部删除。</li>
+</ul>
+<h3 id="Compaction注意事项"><a href="#Compaction注意事项" class="headerlink" title="Compaction注意事项"></a>Compaction注意事项</h3><p>Compaction执行过程会消耗带宽和IO，如果不对它进行限制，会出现读写延迟。所以，HBase提供了几个对Compaction优化项。</p>
+<h4 id="Limit-Compaction-Speed"><a href="#Limit-Compaction-Speed" class="headerlink" title="Limit Compaction Speed"></a>Limit Compaction Speed</h4><p>该优化项通过感知Compaction的压力情况自动调节Compaction吞吐量。在 压力大的时候降低合并吞吐量，压力小的时候增加合并吞吐量。工作原理：</p>
+<ul>
+<li>在正常情况下，用户需要设置吞吐量下限参数“hbase.hstore.compaction.throughput.lower.bound”（10MB/s）和上限参数”hbase.hstore.compaction.throughput.higher.bound”（20MB/s）。而HBase实际工作在吞吐量为：lower + (higher - lower) * ration的情况下。其中ratio是一个(0,1)的小数，它由当前Store中待参与Compaction的HFile数量决定，数量越多，ratio越小，反之越大。</li>
+<li><strong>如果当前Store中HFile的数量太多，并且超过了参数blockingFileCount时，此时所有写请求都会被阻塞以等待Compaction完成，</strong>配置项：hbase.hstore.blockingStoreFiles，默认16。它会阻塞MemStore刷写动作，但不会阻塞写入请求，如果在它还没有完成Compaction时写入了大量的数据，就会导致MemStore写满，最终导致HBase崩溃。</li>
+</ul>
+<h4 id="Compaction-BandWidth-LImit"><a href="#Compaction-BandWidth-LImit" class="headerlink" title="Compaction BandWidth LImit"></a>Compaction BandWidth LImit</h4><p>该优化项也有两个参数：compactBwLimit 和 numOfFilesDisableCompactLimit</p>
+<ul>
+<li><p>compactBwLimit</p>
+<blockquote>
+<p>一次Compaction的最大带宽使用量，如果Compaction所使用的贷款高于该值，就会强制其sleep一段时间</p>
+</blockquote>
+</li>
+<li><p>numOfFilesDisableCompactLimit</p>
+<blockquote>
+<p>在写请求非常大的情况下，限制compaction贷款的使用量必然会导致HFile堆积，进而影响读请求响应延时，因此该值的意图是：一旦Store中HFile数量超过该设定值，贷款限制就会失效。</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="HBase写入异常分析"><a href="#HBase写入异常分析" class="headerlink" title="HBase写入异常分析"></a>HBase写入异常分析</h2><h3 id="情况一：MemStore占用内存大小超过设定阈值导致阻塞"><a href="#情况一：MemStore占用内存大小超过设定阈值导致阻塞" class="headerlink" title="情况一：MemStore占用内存大小超过设定阈值导致阻塞"></a>情况一：MemStore占用内存大小超过设定阈值导致阻塞</h3><p>现象：整个集群写入阻塞，业务反馈写入请求大量异常</p>
+<p>写入异常定位：在RegionServer的日志中搜索“Blocking updates on”，如果能搜到下面的日志，说明写入阻塞是由于RegionServer的MemStore所占内存大小已经超过JVM内存大小的上限比例(hbase.region.global.memstore.size)。</p>
+<blockquote>
+<p>Blocking updates on <strong>*: the global memstore size *</strong> is &gt;= than blocking *** size</p>
+</blockquote>
+<p>导致该异常发生的主要原因是：HFile数量太多导致flush阻塞（上面提到过），可以通过搜索“too many store files”来判断是否是由于HFile引起的阻塞。</p>
+<p>判断是否发生阻塞的一种方法：在web ui上查询Num StoreFiles值，和当前RegionServer中的Num.Stores值。两者相处，如果大于blockingStoreFiles，肯定会阻塞。</p>
+<p><img src="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/image-20211017195659800.png" alt="image-20211017195659800"></p>
+<p>那么核心问题是，为什么HFile数量会增长这么快。理论上如果Compaction的相关参数配置合理，HFile的数量会在一个正常范围上下波动。别人的案例是，表压缩未采用snappy压缩，而是使用PREFIX_TREE编码，该编码格式在某些场景下会导致执行Compaction的线程阻塞，进而消耗compaction线程池中所有工作线程，从而导致其他表的compaction请求只能在队列中排队。</p>
+<h3 id="情况二：RegionServer-Active-Handler资源被耗尽导致写入阻塞"><a href="#情况二：RegionServer-Active-Handler资源被耗尽导致写入阻塞" class="headerlink" title="情况二：RegionServer Active Handler资源被耗尽导致写入阻塞"></a>情况二：RegionServer Active Handler资源被耗尽导致写入阻塞</h3><p>如果情况一下未检索到HFile数量过多问题，那么有可能是RegionServer中Active Handler被耗尽。</p>
+<p>hbase.regionserver.handler.count可以配置它的数量，默认值是30。正常写入情况下，handler在处理完客户端请求后就会立马释放，只有在写请求延迟比较大的情况下，才会耗尽。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/hbase/" rel="tag"># hbase</a>
+              <a href="/tags/bigdata%EF%BC%8C%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag"># bigdata，性能调优</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/09/29/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%89-SOLID%E5%8E%9F%E5%88%99/" rel="prev" title="架构之三:SOLID原则">
+      <i class="fa fa-chevron-left"></i> 架构之三:SOLID原则
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#HBase%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">HBase概述</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.1.</span> <span class="nav-text">数据模型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%80%BB%E8%BE%91%E8%A7%86%E5%9B%BE"><span class="nav-number">1.1.1.</span> <span class="nav-text">逻辑视图</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%89%A9%E7%90%86%E8%A7%86%E5%9B%BE"><span class="nav-number">1.1.2.</span> <span class="nav-text">物理视图</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84"><span class="nav-number">1.2.</span> <span class="nav-text">体系结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B3%BB%E7%BB%9F%E7%89%B9%E6%80%A7"><span class="nav-number">1.3.</span> <span class="nav-text">系统特性</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HBase%E5%9F%BA%E7%A1%80%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">HBase基础数据结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%B3%E8%B7%83%E8%A1%A8"><span class="nav-number">2.1.</span> <span class="nav-text">跳跃表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LSM%E6%A0%91"><span class="nav-number">2.2.</span> <span class="nav-text">LSM树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RegionServer%E7%9A%84%E6%A0%B8%E5%BF%83"><span class="nav-number">3.</span> <span class="nav-text">RegionServer的核心</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#HLog"><span class="nav-number">3.1.</span> <span class="nav-text">HLog</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BlockCache"><span class="nav-number">3.2.</span> <span class="nav-text">BlockCache</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MemStore"><span class="nav-number">3.3.</span> <span class="nav-text">MemStore</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HFIle"><span class="nav-number">3.4.</span> <span class="nav-text">HFIle</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MemStore-Flush"><span class="nav-number">4.</span> <span class="nav-text">MemStore Flush</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Compaction%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="nav-number">5.</span> <span class="nav-text">Compaction实现原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Compaction%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="nav-number">5.1.</span> <span class="nav-text">Compaction操作流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Compaction%E8%A7%A6%E5%8F%91%E6%9D%A1%E4%BB%B6"><span class="nav-number">5.1.1.</span> <span class="nav-text">Compaction触发条件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HFile%E9%80%89%E6%8B%A9%E7%AD%96%E7%95%A5"><span class="nav-number">5.1.2.</span> <span class="nav-text">HFile选择策略</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%90%88%E5%B9%B6HFile"><span class="nav-number">5.1.3.</span> <span class="nav-text">合并HFile</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Compaction%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">5.2.</span> <span class="nav-text">Compaction注意事项</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Limit-Compaction-Speed"><span class="nav-number">5.2.1.</span> <span class="nav-text">Limit Compaction Speed</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Compaction-BandWidth-LImit"><span class="nav-number">5.2.2.</span> <span class="nav-text">Compaction BandWidth LImit</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HBase%E5%86%99%E5%85%A5%E5%BC%82%E5%B8%B8%E5%88%86%E6%9E%90"><span class="nav-number">6.</span> <span class="nav-text">HBase写入异常分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%83%85%E5%86%B5%E4%B8%80%EF%BC%9AMemStore%E5%8D%A0%E7%94%A8%E5%86%85%E5%AD%98%E5%A4%A7%E5%B0%8F%E8%B6%85%E8%BF%87%E8%AE%BE%E5%AE%9A%E9%98%88%E5%80%BC%E5%AF%BC%E8%87%B4%E9%98%BB%E5%A1%9E"><span class="nav-number">6.1.</span> <span class="nav-text">情况一：MemStore占用内存大小超过设定阈值导致阻塞</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%83%85%E5%86%B5%E4%BA%8C%EF%BC%9ARegionServer-Active-Handler%E8%B5%84%E6%BA%90%E8%A2%AB%E8%80%97%E5%B0%BD%E5%AF%BC%E8%87%B4%E5%86%99%E5%85%A5%E9%98%BB%E5%A1%9E"><span class="nav-number">6.2.</span> <span class="nav-text">情况二：RegionServer Active Handler资源被耗尽导致写入阻塞</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">24</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
