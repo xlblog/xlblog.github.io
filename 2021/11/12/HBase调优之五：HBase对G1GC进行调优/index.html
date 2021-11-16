@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Tuning G1GC For Your HBase Cluster">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HBase调优之五：HBase对G1GC进行调优">
+<meta property="og:url" content="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/index.html">
+<meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="Tuning G1GC For Your HBase Cluster">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC1-1.png?width=671&height=519&name=G1GC1-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC2-1.png?width=671&height=519&name=G1GC2-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC3-1.png?width=500&name=G1GC3-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1Gc4-1.png?width=500&name=G1Gc4-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC5-1.png?width=500&name=G1GC5-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC6-1.png?width=500&name=G1GC6-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC7-1.png?width=500&name=G1GC7-1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC8.png?width=500&name=G1GC8.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC9.png?width=500&name=G1GC9.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC10.png?width=500&name=G1GC10.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC11.png?width=500&name=G1GC11.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC12.png?width=500&name=G1GC12.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC13.png?width=671&height=518&name=G1GC13.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC14.png?width=500&name=G1GC14.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC15.png?width=500&name=G1GC15.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC16.png?width=671&height=519&name=G1GC16.png">
+<meta property="og:image" content="https://product.hubspot.com/hubfs/G1GC17.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC18.png?width=671&height=518&name=G1GC18.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC19.png?width=671&height=519&name=G1GC19.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC20.png?width=671&height=302&name=G1GC20.png">
+<meta property="article:published_time" content="2021-11-12T08:20:27.000Z">
+<meta property="article:modified_time" content="2021-11-16T06:23:04.680Z">
+<meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="hbase">
+<meta property="article:tag" content="gc">
+<meta property="article:tag" content="性能调优">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC1-1.png?width=671&height=519&name=G1GC1-1.png">
+
+<link rel="canonical" href="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>HBase调优之五：HBase对G1GC进行调优 | 乡间小鹿</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">乡间小鹿</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">每一个不曾起舞的日子都是对生命的辜负</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="李忠友">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="乡间小鹿">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          HBase调优之五：HBase对G1GC进行调优
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-11-12 16:20:27" itemprop="dateCreated datePublished" datetime="2021-11-12T16:20:27+08:00">2021-11-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-11-16 14:23:04" itemprop="dateModified" datetime="2021-11-16T14:23:04+08:00">2021-11-16</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Tuning-G1GC-For-Your-HBase-Cluster"><a href="#Tuning-G1GC-For-Your-HBase-Cluster" class="headerlink" title="Tuning G1GC For Your HBase Cluster"></a>Tuning G1GC For Your HBase Cluster</h1><a id="more"></a>
+
+<p>HBase is the big data store of choice for engineering at HubSpot. It’s a complicated data store with a multitude of levers and knobs that can be adjusted to tune performance. We’ve put a lot of effort into optimizing the performance and stability of our HBase clusters, and recently discovered that suboptimal G1GC tuning was playing a big part in issues we were seeing, especially with stability.</p>
+<p><strong>Each of our HBase clusters is made up of 6 to 40 AWS d2.8xlarge instances serving terabytes of data. Individual instances handle sustained loads over 50k ops/sec with peaks well beyond that. This post will cover the efforts undertaken to iron out G1GC-related performance issues in these clusters. If you haven’t already, we suggest getting familiar with the <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-fundamentals-lessons-from-taming-garbage-collection">characteristics, quirks, and terminology of G1GC</a> first.</strong></p>
+<p>We first discovered that G1GC might be a source of pain while investigating frequent</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">“...FSHLog: Slow sync cost: ### ms...”</span><br></pre></td></tr></table></figure>
+<p>messages in our RegionServer logs. Their occurrence correlated very closely to GC pauses, so we dug further into RegionServer GC. We discovered three issues related to GC:</p>
+<ul>
+<li>One cluster was losing nodes regularly due to long GC pauses.</li>
+<li>The overall GC time was between 15-25% during peak hours.</li>
+<li>Individual GC events were frequently above 500ms, with many over 1s.</li>
+</ul>
+<p>Below are the 7 tuning iterations we tried in order to solve these issues, and how each one played out. As a result, we developed a step-by-step summary for tuning HBase clusters that you can find and follow <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Summary">here</a>.</p>
+<h1 id="Original-GC-Tuning-State"><a href="#Original-GC-Tuning-State" class="headerlink" title="Original GC Tuning State"></a>Original GC Tuning State</h1><p>The original JVM tuning was based on <a target="_blank" rel="noopener" href="https://software.intel.com/en-us/blogs/2014/06/18/part-1-tuning-java-garbage-collection-for-hbase">an Intel blog post</a>, and over time morphed into the following configuration just prior to our major tuning effort.</p>
+<table>
+<thead>
+<tr>
+<th><strong>Xmx32g -Xms32g</strong></th>
+<th>32 GB heap, initial and max should be the same</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>XX:G1NewSizePercent=</strong> <strong><em>3-9\</em></strong></td>
+<td>Minimum size for Eden each epoch, differs by cluster</td>
+</tr>
+<tr>
+<td><strong>XX:MaxGCPauseMillis=50</strong></td>
+<td>Optimistic target, most clusters take 100+ ms</td>
+</tr>
+<tr>
+<td><strong>XX:-OmitStackTraceInFastThrow</strong></td>
+<td>Better stack traces in some circumstances, traded for a bit more CPU usage</td>
+</tr>
+<tr>
+<td><strong>XX:+ParallelRefProcEnabled</strong></td>
+<td>Helps keep a lid on <a target="_blank" rel="noopener" href="http://www.infoq.com/articles/tuning-tips-G1-GC">reference processing time</a> issues we were seeing</td>
+</tr>
+<tr>
+<td><strong>XX:+PerfDisableSharedMem</strong></td>
+<td>Alleged to protect against <a target="_blank" rel="noopener" href="http://www.evanjones.ca/jvm-mmap-pause.html">bizarre linux issue</a></td>
+</tr>
+<tr>
+<td><strong>XX:-ResizePLAB</strong></td>
+<td>Alleged to save some CPU cycles in between GC epochs</td>
+</tr>
+</tbody></table>
+<p>GC logging verbosity as shown below was cranked up to a high enough level of detail for our homegrown <a target="_blank" rel="noopener" href="https://github.com/HubSpot/gc_log_visualizer">gc_log_visualizer</a> script. The majority of graphs in this document were created with gc_log_visualizer, while others were snapshotted from SignalFX data collected through our <a target="_blank" rel="noopener" href="https://github.com/HubSpot/collectd-gcmetrics">CollectD GC metrics plugin</a>.</p>
+<p>Our GC logging params:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-verbosegc -XX:+PrintGC -XX:+PrintGCDateStamps -XX:+PrintAdaptiveSizePolicy -XX:+PrintGCDetails -XX:+PrintGCApplicationStoppedTime -XX:+PrintTenuringDistribution</span><br></pre></td></tr></table></figure>
+<h1 id="Starting-Point-Heap-Sizes-and-Overall-Time-Spent-in-GC"><a href="#Starting-Point-Heap-Sizes-and-Overall-Time-Spent-in-GC" class="headerlink" title="Starting Point: Heap Sizes and Overall Time Spent in GC"></a>Starting Point: Heap Sizes and Overall Time Spent in GC</h1><p>With the highly detailed GC logs came the following chart of heap state. Eden size is in red and stays put at its minimum (<strong>G1NewSizePercent</strong>), 9% of total heap. Tenured size, or Working set + waste, floats in a narrow band between 18-20gb. With Eden a flat line, the total heap line will mirror the Tenured line, just 9% higher.**<br>**</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC1-1.png?width=671&height=519&name=G1GC1-1.png" alt="G1GC1-1.png"></p>
+<p>The black horizontal line just under 15GB marks the <strong>InitiatingHeapOccupancyPercent</strong> (aka “IHOP”), at its default setting of 45%. The purple squares are the amount of Tenured space reclaimable at the start of a mixed GC event. The floor of the band of purple squares is 5% of heap, the value of <strong>G1HeapWastePercent</strong>.</p>
+<p><strong>The next graph shows a red “+” on each minute boundary and stands for the total percent of wall time the JVM was in STW and doing no useful work. The overall time spent in GC for this HBase instance for this time period is 15-25%. For reference, an application tier server spending 20%+ time in GC is considered stuck in “GC Hell” and in desperate need of tuning.</strong></p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC2-1.png?width=671&height=519&name=G1GC2-1.png" alt="G1GC2-1.png"></p>
+<h1 id="Tuning-1-Goal-Lower-Total-Time-in-GC-Action-Raise-IHOP"><a href="#Tuning-1-Goal-Lower-Total-Time-in-GC-Action-Raise-IHOP" class="headerlink" title="Tuning #1 Goal: Lower Total Time in GC - Action: Raise IHOP"></a>Tuning #1 Goal: Lower Total Time in GC - Action: Raise IHOP</h1><p>One aspect that stands out clearly in the previous graph of heap sizes is that the working set is well above the IHOP. Tenured being higher than IHOP generally results in an overabundance of MPCMC runs (wastes CPU) and consequently an overabundance of Mixed GC cycles resulting in a higher ratio of expensive GC events vs cheap GC events. By moving IHOP a bit higher than Tenured, we expect fewer Mixed GC events to reclaim larger amounts of space, which should translate to less overall time spent in STW.</p>
+<p>Raising the IHOP value on an hbase instance, the following before/after (above/below) graphs show that indeed the frequency of Mixed GC events drops dramatically while the reclaimable amount rises.</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC3-1.png?width=500&name=G1GC3-1.png" alt="G1GC3-1.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1Gc4-1.png?width=500&name=G1Gc4-1.png" alt="G1Gc4-1.png"></p>
+<p>Considering that at least half of Mixed GC events on this instance took 200-400ms, we expected the reduced amount of Mixed GC events to outweigh any increase in individual Mixed GC times, such that overall GC time would drop. That expectation held true, as overall time spent in GC dropped from 4-12% to 1-8%.</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC5-1.png?width=500&name=G1GC5-1.png" alt="G1GC5-1.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC6-1.png?width=500&name=G1GC6-1.png" alt="G1GC6-1.png"></p>
+<p>The following graphs show before/after on the STW times for all Mixed GC events. Note the drastic drop in frequency while individual STW times don’t seem to change.</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC7-1.png?width=500&name=G1GC7-1.png" alt="G1GC7-1.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC8.png?width=500&name=G1GC8.png" alt="G1GC8.png"></p>
+<h1 id="Result-Success"><a href="#Result-Success" class="headerlink" title="Result: Success"></a>Result: Success</h1><p>This test was considered successful. We made the change across all HBase clusters to use a significantly larger IHOP value than the default of 45%.</p>
+<h1 id="Tuning-2-Goal-Lower-Total-Time-in-GC-Action-Increase-Eden"><a href="#Tuning-2-Goal-Lower-Total-Time-in-GC-Action-Increase-Eden" class="headerlink" title="Tuning #2 Goal: Lower Total Time in GC - Action: Increase Eden"></a>Tuning #2 Goal: Lower Total Time in GC - Action: Increase Eden</h1><p>Fixing the IHOP value to be higher than working set was basically fixing a misconfiguration. There was very little doubt that nonstop MPCMC + Mixed GC events was an inefficient behavior. Increasing Eden size, on the other hand, had a real possibility of increasing all STW times, both Minor and Mixed. GC times are driven by the amount of data being copied (surviving) from one epoch to the next, and databases like HBase are expected to have very large caches. A 10+ GB cache could very well have high churn and thus high object survival rates.</p>
+<p>The effective Eden size for our HBase clusters is driven by the minimum Eden value <strong>G1NewSizePercent</strong> because the <strong>MaxGCPauseMillis</strong> target of 50ms is never met.</p>
+<p>For this test, we raised Eden from 9% to 20% through <strong>G1NewSizePercent</strong>.</p>
+<h1 id="Effects-on-Overall-GC-Time"><a href="#Effects-on-Overall-GC-Time" class="headerlink" title="Effects on Overall GC Time"></a>Effects on Overall GC Time</h1><p><strong><em>\</em>Looking at the following graphs, we see that overall time spent in GC may have dropped a little for this one hour time window from one day to the next.\</strong><br>**</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC9.png?width=500&name=G1GC9.png" alt="G1GC9.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC10.png?width=500&name=G1GC10.png" alt="G1GC10.png"></p>
+<h1 id="Individual-STW-times"><a href="#Individual-STW-times" class="headerlink" title="Individual STW times"></a>Individual STW times</h1><p><strong><em>*</em>*Looking at the STW times for just the Minor GC events there is a noticeable jump in the floor of STW times.*\</strong>***</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC11.png?width=500&name=G1GC11.png" alt="G1GC11.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC12.png?width=500&name=G1GC12.png" alt="G1GC12.png"></p>
+<h1 id="To-space-Exhaustion-Danger"><a href="#To-space-Exhaustion-Danger" class="headerlink" title="To-space Exhaustion Danger"></a>To-space Exhaustion Danger</h1><p>As mentioned in the <a target="_blank" rel="noopener" href="https://product.hubspot.com/g1gc-fundamentals-lessons-from-taming-garbage-collection?hs_preview=zL3BfQaN-4049945892">G1GC Foundational blog post</a>, <strong>G1ReservePercent</strong> is ignored when the minimum end of the Eden range is used. The working set on a few of our HBase clusters is in the 70-75% range, which combined with a min Eden of 20% would leave only 5-10% of heap free for emergency circumstances. The downside of running out of free space, thus triggering To-space Exhaustion, is a 20+ sec GC pause and the effective death of the HBase instance. While the instance would recover, the other HBase instances in the cluster would consider it long dead before the GC pause completed.</p>
+<h1 id="Result-Failure"><a href="#Result-Failure" class="headerlink" title="Result: Failure"></a>Result: Failure</h1><p>The overall time spent in GC did drop a little as theoretically expected, unfortunately the low end of Minor GC stw times increased by a similar percent. In addition, the risk for To-space exhaustion increased. The approach of increasing <strong>G1NewSizePercent</strong> to reduce overall time spent in GC didn’t look promising and was not rolled out to any clusters.</p>
+<h1 id="Tuning-3-Goal-Reduce-Individual-STW-Durations-Action-SurvivorRatio-amp-MaxTenuringThreshold"><a href="#Tuning-3-Goal-Reduce-Individual-STW-Durations-Action-SurvivorRatio-amp-MaxTenuringThreshold" class="headerlink" title="Tuning #3 Goal: Reduce Individual STW Durations - Action: SurvivorRatio &amp; MaxTenuringThreshold"></a>Tuning #3 Goal: Reduce Individual STW Durations - Action: SurvivorRatio &amp; MaxTenuringThreshold</h1><p>In the previous tuning approach, we found that STW times increased as Eden size increased. We took some time to dig a little deeper into Survivor space to determine if there was any To-space overflow or if objects could be promoted faster to reduce the amount of object copying being done. To collect the Survivor space tenuring distribution data in the GC logs we enabled <strong>-XX:+PrintTenuringDistribution</strong> and restarted a few select instances.</p>
+<p><strong>To-space overflow is the phenomenon where the Survivor To space isn’t large enough to fit all the live data in Eden at the end of an epoch. Any data collected after Survivor To is full is added to Free regions, which are then added to Tenured. If this overflow is transient data, putting it in Tenured is inefficient as it will be expensive to clean out. If that was the case, we’d need to increase SurvivorRatio.</strong></p>
+<p><strong>On the other hand, consider a use case where any object that survives two epochs will also survive ten epochs. In that case, by ensuring that any object that survives a second epoch is immediately promoted to Tenured, we would see a performance improvement since we wouldn’t be copying it around in the GC events that followed.</strong></p>
+<p>Here’s some data collected from the <strong>PrintTenuringDistribution</strong> parameter:</p>
+<p>Desired survivor size 192937984 bytes, new threshold 2 (max 15)</p>
+<p>- age 1: 152368032 bytes, 152368032 total</p>
+<p>- age 2: 147385840 bytes, 299753872 total</p>
+<p>[Eden: 2656.0M(2656.0M)-&gt;0.0B(2624.0M) Survivors: 288.0M-&gt;320.0M Heap: 25.5G(32.0G)-&gt;23.1G(32.0G)]</p>
+<p>An Eden size of 2656 MB with <strong>SurvivorRatio=8</strong> (default) yields a 2656/8 = 332 MB survivor space. In the example entries we see enough room to hold two ages of survivor objects. The second age here is 5mb smaller than the first age, indicating that in the interval between GC events, only 5/152 = <strong>3.3%</strong> of the data was transient. We can reasonably assume the other 97% of the data is some kind of caching. By setting <strong>-XX:MaxTenuringThreshold=1</strong>, we optimize for the 97% of cached data to be promoted to Tenured after surviving its second epoch and hopefully shave a few ms of object copy time off each GC event.</p>
+<h1 id="Result-Theoretical-Success"><a href="#Result-Theoretical-Success" class="headerlink" title="Result: Theoretical Success"></a>Result: Theoretical Success</h1><p>Unfortunately we don’t have any nice graphs available to show these effects in isolation. We consider the theory sound and rolled out <strong>-XX:MaxTenuringThreshold=1</strong> to all our clusters.</p>
+<h1 id="Tuning-4-Goal-Eliminate-Long-STW-Events-Action-G1MixedGCCountTarget-amp-G1HeapWastePercent"><a href="#Tuning-4-Goal-Eliminate-Long-STW-Events-Action-G1MixedGCCountTarget-amp-G1HeapWastePercent" class="headerlink" title="Tuning #4 Goal: Eliminate Long STW Events - Action: G1MixedGCCountTarget &amp; G1HeapWastePercent"></a>Tuning #4 Goal: Eliminate Long STW Events - Action: G1MixedGCCountTarget &amp; G1HeapWastePercent</h1><p>Next, we wanted to see what we could do about eliminating the high end of Mixed GC pauses. Looking at a 5 minute interval of our Mixed GC STW times, we saw a pattern of sharply increasing pauses across each cycle of 6 mixed GCs:</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC13.png?width=671&height=518&name=G1GC13.png" alt="G1GC13.png"></p>
+<p>That in and of itself should not be considered unusual, after all that behavior is how the G1GC algorithm got it’s name. Each Mixed GC event will evacuate 1/<strong>G1MixedGCCountTarget</strong> of the high-waste regions (regions with the most non-live data). Since it prioritizes regions with the most garbage, each successive Mixed GC event will be evicting regions with more and more live objects. The chart shows the performance effects of clearing out regions with more and more live data: the Mixed event times start at 100ms at the beginning of a mixed GC cycle and range upwards past 600ms by the end.</p>
+<p>In our case, we were seeing occasional pauses at the end of some cycles that were several seconds long. Even though they were rare enough that our average pause time was reasonable, pauses that long are still a serious concern.</p>
+<p>Two levers in combination can be used together to lessen the “scraping the bottom of the barrel” effect of cleaning up regions with a lot of live data:</p>
+<p><strong>G1HeapWastePercent</strong>: default (5) → 10. Allow twice as much wasted space in Tenured. Having 5% waste resulted in 6 of the 8 potential Mixed GC events occurring in each Mixed GC cycle. Bumping to 10% waste should chop off 1-2 more of the most expensive events of the Mixed GC cycle.</p>
+<p><strong>G1MixedGCCountTarget</strong>: default (8) → 16. Double the target number of Mixed GC events each Mixed GC cycle, but halve the work done by each GC event. Though it’s an increase to the number of GC events that are Mixed GC events, STW times of individual Mixed events should drop noticeably.</p>
+<p>In combination, we expected doubling the target count to drop the average Mixed GC time, and increasing the allowable waste to eliminate the most expensive Mixed GC time. There should be some synergy, as more heap waste should also mean regions are on average slightly less live when collected.</p>
+<p>Waste heap values of 10% and 15% were both examined in a test environment. (Don’t be alarmed by the high average pause times–this test environment was running under heavy load, on less capable hardware than our production servers.)</p>
+<p>Above: 10% heap waste; below: 15% heap waste:</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC14.png?width=500&name=G1GC14.png" alt="G1GC14.png"><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC15.png?width=500&name=G1GC15.png" alt="G1GC15.png"></p>
+<p>The results are very similar. 15% performed slightly better, but in the end we decided that 15% waste was unnecessarily much. 10% was enough to clear out the “scraping the bottom of the barrel” effect such that the 1+ sec Mixed GC STW times all but disappeared in production.</p>
+<h1 id="Result-Success-1"><a href="#Result-Success-1" class="headerlink" title="Result: Success"></a>Result: Success</h1><p>Doubling <strong>G1MixedGCCountTarget</strong> from 8 to 16 and <strong>G1HeapWastePercent</strong> from 5 to 10 succeeded in eliminating the frequent 1s+ Mixed GC STW times. We kept these changes and rolled them out across all our clusters.</p>
+<h1 id="Tuning-5-Goal-Stop-Losing-Nodes-Heap-Size-and-HBase-Configs"><a href="#Tuning-5-Goal-Stop-Losing-Nodes-Heap-Size-and-HBase-Configs" class="headerlink" title="Tuning #5 Goal: Stop Losing Nodes: Heap Size and HBase Configs"></a>Tuning #5 Goal: Stop Losing Nodes: Heap Size and HBase Configs</h1><p>While running load tests to gauge the effects of the parameters above, we also began to dig into what looked like evidence of memory leaks in a production cluster. In the following graph we see the heap usage slowly grow over time until To-space Exhaustion, triggering a Full GC with a long enough pause to get the HBase instance booted from the cluster and killed:</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC16.png?width=671&height=519&name=G1GC16.png" alt="G1GC16.png"></p>
+<p>We’ve got several HBase clusters, and only one cluster occasionally showed this type of behavior.  If this issue were a memory leak, we’d expect the issue to arise more broadly, so it looks like HBase is using more memory in this cluster than we expected. To understand why, we looked into the heap breakdown of our RegionServers. The vast majority of an HBase RegionServer’s Tenured space is allocated to three main areas:</p>
+<ul>
+<li><strong>Memstore</strong>: region server’s write cache; default configuration caps this at 40% of heap.</li>
+<li><strong>Block Cache</strong>: region server’s read cache; default config caps at 40% of heap.</li>
+<li><strong>Overhead</strong>: the vast majority of HBase’s in-memory overhead is contained in a “static index”. The size of this index isn’t capped or configurable, but HBase assumes this won’t be an issue since the combined cap for memstore and block cache can’t exceed 80%.</li>
+</ul>
+<p>We have metrics for the size of each of these, from the RegionServer’s JMX stats: “memStoreSize,” “blockCacheSize,” and “staticIndexSize.” The stats from our clusters show that HBase will use basically all of the block cache capacity you give it, but memstore and static index sizes depend on cluster usage and tables. Memstore fluctuates over time, while static index size depends on the RegionServer’s StoreFile count and average row key size.</p>
+<p>It turned out, for the cluster in question, that the HBase caches and overhead combined were actually using more space than our JVM was tuned to handle. Not only were memstore and block cache close to capacity—12 GB block cache, memstore rising past 10GB—but the static index size was unexpectedly large, at 6 GB. Combined, this put desired Tenured space at 28+ GB, while our IHOP was set at 24 GB, so the upward trend of our Tenured space was just the legitimate memory usage of the RegionServer.</p>
+<p>With this in mind, we judged the maximum expected heap use for each cluster’s RegionServers by looking at the cluster maximum memstore size, block cache size, and static index size over the previous month, and assuming max expected usage to be 110% of each value. We then used that number to set the block cache and memstore size caps (<strong>hfile.block.cache.size</strong> &amp; <strong>hbase.regionserver.global.memstore.size</strong>) in our HBase configs.</p>
+<p>The fourth component of Tenured space is the heap waste, in our case 10% of the heap size. We could now confidently tune our IHOP threshold by summing the max expected memstore, block cache, static index size, 10% heap for heap waste, and finally 10% more heap as a buffer to avoid constant mixed GCs when working set is maxed (as described in Tuning #1).</p>
+<p>However, before we went ahead and blindly set this value, we had to consider the uses of heap other than Tenured space. Eden requires a certain amount of heap (determined by <strong>G1NewSizePercent</strong>), and a certain amount (default 10%) is Reserved free space. IHOP + Eden + Reserved must be ≤ 100% in order for a tuning to make sense; in cases where our now-precisely-calculated IHOP was too large for this to be possible, we had to expand our RegionServer heaps. To determine minimum acceptable heap size, assuming 10% Reserved space, we used this formula:</p>
+<p><strong>Heap</strong> ≥ (M + B + O + E) ÷ 0.7</p>
+<ul>
+<li><em>M</em> = max expected memstore size</li>
+<li><em>B</em> = max expected block cache size</li>
+<li><em>O</em> = max expected overhead (static index)</li>
+<li><em>E</em> = minimum Eden size</li>
+</ul>
+<p>When those four components add up to ≤ 70% of the heap, then there will be enough room for 10% Reserved space, 10% heap waste, and 10% buffer between max working set and IHOP.</p>
+<h1 id="Result-Success-2"><a href="#Result-Success-2" class="headerlink" title="Result: Success"></a>Result: Success</h1><p>We reviewed memory usage of each of our clusters and calculated correct heap sizes and IHOP thresholds for each. Rolling out these changes immediately ended the To-space Exhaustion events we were seeing on the problematic cluster.</p>
+<h1 id="Tuning-6-Goal-Eliminate-Long-STW-Events-Action-Increase-G1-Region-Size"><a href="#Tuning-6-Goal-Eliminate-Long-STW-Events-Action-Increase-G1-Region-Size" class="headerlink" title="Tuning #6 Goal: Eliminate Long STW Events - Action: Increase G1 Region Size"></a>Tuning #6 Goal: Eliminate Long STW Events - Action: Increase G1 Region Size</h1><p><strong>We’d rolled out HBase block cache &amp; memstore config changes, changes to \</strong>G1HeapWastePercent** and *<em>G1MixedGCCountTarget*</em>, and an increase in heap size on a couple clusters (32 GB → 40+ GB) to accommodate larger IHOP. In general things were smooth, but there were still occasional Mixed GC events taking longer than we were comfortable with, especially on the clusters whose heap had increased. Using gc_log_visualizer, we looked into what phase of Mixed GC was the most volatile and noticed that Scan RS times correlated:**</p>
+<p><img src="https://product.hubspot.com/hubfs/G1GC17.png" alt="G1GC17.png"></p>
+<p>A few Google searches indicated that Scan RS time output in the GC logs is the time taken examining all the regions referencing the tenured regions being collected. In our most recent tuning changes, heap size had been bumped up, however the <strong>G1HeapRegionSize</strong> remained fixed at 16 MB. Increasing the <strong>G1HeapRegionSize</strong> to 32 MB eliminated those high scan times:</p>
+<p>**<img src="https://product.hubspot.com/hs-fs/hubfs/G1GC18.png?width=671&height=518&name=G1GC18.png" alt="G1GC18.png"><br>**</p>
+<h1 id="Result-Success-3"><a href="#Result-Success-3" class="headerlink" title="Result: Success"></a>Result: Success</h1><p><strong><em>\</em>Halving the G1 region count cleared out the high volatility in Scan RS times. According to G1GC documentation, the ideal region count is 2048, so 16 MB regions were perfect for a 32 GB heap. However, this tuning case led us to believe that for HBase heaps without a clear choice of region size, in our case 40+ GB, it’s much better to err on the side of fewer, larger regions.\</strong><br>**</p>
+<h1 id="Tuning-7-Goal-Preventing-RegionServer-To-space-Exhaustion-Action-Extra-Heap-as-Buffer"><a href="#Tuning-7-Goal-Preventing-RegionServer-To-space-Exhaustion-Action-Extra-Heap-as-Buffer" class="headerlink" title="Tuning #7 Goal: Preventing RegionServer To-space Exhaustion - Action: Extra Heap as Buffer"></a>Tuning #7 Goal: Preventing RegionServer To-space Exhaustion - Action: Extra Heap as Buffer</h1><p>At this point, our RegionServers were tuned and running much shorter and less frequent GC Events. IHOP rested above Tenured while Tenured + Eden remained under the target of 90% total heap. Yet once in awhile, a RegionServer would <em>still</em> die from a To-space exhaustion triggered Full GC event as shown in the following graph.</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC19.png?width=671&height=519&name=G1GC19.png" alt="G1GC19.png"></p>
+<p>It looks like we did everything right—there’s lot’s of reclaimable space and Tenured space drops well below IHOP with each Mixed GC. But right at the end, heap usage spikes up and we hit To-space Exhaustion. And while it’s likely the HBase client whose requests caused this problem could be improved to avoid this*, we can’t rely on our various HBase clients to behave perfectly all the time.</p>
+<p>In the scenario above, very bursty traffic caused Tenured space to fill up the heap before the MPCMC could complete and enable a Mixed GC run. To tune around this, we simply added heap space**, while adjusting IHOP and <strong>G1NewSizePercent</strong> down to keep them at the same GB values they had been at before. By doing this we increased the buffer of free space in the heap above our original 10% default, for additional protection against spikes in memory usage.</p>
+<h1 id="Result-Success-4"><a href="#Result-Success-4" class="headerlink" title="Result: Success"></a>Result: Success</h1><p>Increasing heap buffer space on clusters whose HBase clients are known to be occasionally bursty has all but eliminated Full GC events on our RegionServers.</p>
+<h1 id="Notes"><a href="#Notes" class="headerlink" title="Notes:"></a>Notes:</h1><p>***** Block cache churn correlates very closely with time spent in Mixed GC events on our clusters (see chart below). A high volume of Get and Scan requests with caching enabled unnecessarily (e.g. requested data isn’t expected to be in cache and isn’t expected to be requested again soon) will increase cache churn as data is evicted from cache to make room for the Get/Scan results. This will raise the RegionServer’s time in GC and could contribute to instability as described in this section.</p>
+<p>Chart: % time in Mixed GC is in yellow (left axis); MB/sec cache churn is in blue (right axis):</p>
+<p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC20.png?width=671&height=302&name=G1GC20.png" alt="G1GC20.png"></p>
+<p>** Another potential way to tune around this issue is by increasing ConcGCThreads (default is ¼ ParallelGCThreads). ConcGCThreads is the number of threads used to do the MPCMC, so increasing it could mean the MPCMC finishes sooner and the RegionServer can start a Mixed GC before Tenured space fills the heap. At HubSpot we’ve been satisfied with the results of increasing our heap size and haven’t tried experimenting with this value.</p>
+<h1 id="Overall-Results-Goals-Achieved"><a href="#Overall-Results-Goals-Achieved" class="headerlink" title="Overall Results: Goals Achieved!"></a>Overall Results: Goals Achieved!</h1><p>After these cycles of debugging and tuning G1GC for our HBase clusters, we’ve improved performance in all the areas we were seeing problems originally:</p>
+<ul>
+<li><strong>Stability:</strong> no more To-space Exhaustion events causing Full GCs.</li>
+<li><strong><em>\</em>99th percentile performance:\</strong> greatly reduced frequency of long STW times.**</li>
+<li><strong>Avg. performance:</strong> overall time spent in GC STW significantly reduced.</li>
+</ul>
+<h1 id="Summary-How-to-Tune-Your-HBase-Cluster"><a href="#Summary-How-to-Tune-Your-HBase-Cluster" class="headerlink" title="Summary: How to Tune Your HBase Cluster"></a>Summary: How to Tune Your HBase Cluster</h1><p>Based on our findings, here’s how we recommend you tune G1GC for your HBase cluster(s):</p>
+<h2 id="Before-you-start-GC-amp-HBase-monitoring"><a href="#Before-you-start-GC-amp-HBase-monitoring" class="headerlink" title="Before you start: GC &amp; HBase monitoring"></a>Before you start: GC &amp; HBase monitoring</h2><ul>
+<li><p>Track block cache, memstore &amp; static index size metrics for your clusters in whatever tool you use for charts and monitoring, if you don’t already. These are found in the RegionServer JMX metrics:</p>
+</li>
+<li><ul>
+<li>“memStoreSize”</li>
+<li>“blockCacheSize”</li>
+<li>“staticIndexSize”</li>
+</ul>
+</li>
+<li><p>You can use our <a target="_blank" rel="noopener" href="https://github.com/HubSpot/collectd-gcmetrics">collectd plugin</a> to track G1GC performance over time, and our <a target="_blank" rel="noopener" href="https://github.com/HubSpot/gc_log_visualizer">gc_log_visualizer</a> for insight on specific GC logs. In order to use these you’ll have to log GC details on your RegionServers:</p>
+<ul>
+<li><strong><em>\</em>-Xloggc:\</strong>*$GC_LOG_PATH***</li>
+<li><strong>-verbosegc</strong></li>
+<li><strong>-XX:+PrintGC</strong></li>
+<li><strong>-XX:+PrintGCDateStamps</strong></li>
+<li><strong>-XX:+PrintAdaptiveSizePolicy</strong></li>
+<li><strong>-XX:+PrintGCDetails</strong></li>
+<li><strong>-XX:+PrintGCApplicationStoppedTime</strong></li>
+<li><strong>-XX:+PrintTenuringDistribution</strong></li>
+<li>Also recommended is some kind of GC log rotation, e.g.:<ul>
+<li><strong>-XX:+UseGCLogFileRotation</strong></li>
+<li>*<em>-XX:NumberOfGCLogFiles=**</em>5*</li>
+<li> <strong>-XX:GCLogFileSize=20M</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Step-0-Recommended-Defaults"><a href="#Step-0-Recommended-Defaults" class="headerlink" title="Step 0: Recommended Defaults"></a>Step 0: Recommended Defaults</h2><ul>
+<li><p>We recommend the following JVM parameters and values as defaults for your HBase RegionServers (as explained in </p>
+<p>Original GC Tuning State</p>
+<p>):</p>
+<ul>
+<li><strong>-XX:+UseG1GC</strong></li>
+<li><strong>-XX:+UnlockExperimentalVMOptions</strong></li>
+<li><strong>-XX:MaxGCPauseMillis=50</strong><ul>
+<li>This value is intentionally very low and doesn’t actually represent a pause time upper bound. We recommend keeping it low to pin Eden to the low end of its range (see <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Tuning2">Tuning #2</a>).</li>
+</ul>
+</li>
+<li><strong>-XX:-OmitStackTraceInFastThrow</strong></li>
+<li><strong>-XX:ParallelGCThreads=8+(logical processors-8)(5/8)</strong></li>
+<li><strong>-XX:+ParallelRefProcEnabled</strong></li>
+<li><strong>-XX:+PerfDisableSharedMem</strong></li>
+<li><strong>-XX:-ResizePLAB</strong></li>
+</ul>
+</li>
+</ul>
+<h2 id="Step-1-Determine-maximum-expected-HBase-usage"><a href="#Step-1-Determine-maximum-expected-HBase-usage" class="headerlink" title="Step 1: Determine maximum expected HBase usage"></a>Step 1: Determine maximum expected HBase usage</h2><ul>
+<li><p>As discussed in the </p>
+<p>Tuning #5 section</p>
+<p>, before you can properly tune your cluster you need to know your max expected block cache, memstore, and static index usage.</p>
+<ul>
+<li><p>Using the RegionServer JMX metrics mentioned above, look for the maximum value of each metric across the cluster:</p>
+<ul>
+<li>Maximum block cache size.</li>
+<li>Maximum memstore size.</li>
+<li>Maximum static index size.</li>
+</ul>
+</li>
+<li><p>Scale each maximum by 110%, to accommodate even for slight increase in max usage. This is your</p>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>usage cap
+
+
+
+for that metric: e.g. a 10 GB max recorded memstore → 11 GB
+
+
+
+memstore cap.
+
+- **Ideally, you’ll have these metrics tracked for the past week or month, and you can find the maximum values over that time. If not, be more generous than 110% when calculating memstore and static index caps. Memstore size especially can vary widely over time.**</code></pre>
+<h2 id="Step-2-Set-Heap-size-IHOP-and-Eden-size"><a href="#Step-2-Set-Heap-size-IHOP-and-Eden-size" class="headerlink" title="Step 2: Set Heap size, IHOP, and Eden size"></a>Step 2: Set Heap size, IHOP, and Eden size</h2><ul>
+<li><p>Start with Eden size relatively low: 8% of heap is a good initial value if you’re not sure.</p>
+<ul>
+<li><p><strong>-XX:G1NewSizePercent=8</strong></p>
+</li>
+<li><p>See</p>
+</li>
+</ul>
+</li>
+</ul>
+<pre><code>Tuning #2
+
+
+
+for more about Eden sizing.
+
+- Increasing Eden size will increase individual GC pauses, but slightly reduce overall % time spent in GC.
+- Decreasing Eden size will have the opposite effect: shorter pauses, slightly more overall time in GC.</code></pre>
+<ul>
+<li><p>Determine necessary heap size, using Eden size and usage caps from Step 1:</p>
+<ul>
+<li>From <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Tuning5">Tuning #5</a>: <strong>Heap</strong> ≥ (M + B + O + E) ÷ 0.7<ul>
+<li><em>M</em> = <strong>memstore cap</strong>, GB</li>
+<li><em>B</em> = <strong>block cache cap</strong>, GB</li>
+<li><em>O</em> = <strong>static index cap</strong>, GB</li>
+<li><strong><em>E\</em> = \</strong>Eden size**, GB**</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><ul>
+<li>Set JVM args for fixed heap size based on the calculated value, e.g:<ul>
+<li><strong>-Xms40960m -Xmx40960m</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Set IHOP in the JVM, based on usage caps and heap size:</p>
+</li>
+<li><ul>
+<li>IHOP = (<strong><em>memstore cap***</em></strong>’s** % heap +* <strong><em>block cache cap***</em></strong>’s** % heap +* <strong><em>overhead cap***</em></strong>’s** % heap + 20*)</li>
+<li><strong><em>\</em>-XX:InitiatingHeapOccupancyPercent=\</strong>*IHOP***</li>
+</ul>
+</li>
+</ul>
+<h2 id="Step-3-Adjust-HBase-configs-based-on-usage-caps"><a href="#Step-3-Adjust-HBase-configs-based-on-usage-caps" class="headerlink" title="Step 3: Adjust HBase configs based on usage caps"></a>Step 3: Adjust HBase configs based on usage caps</h2><ul>
+<li><p>Set block cache cap and memstore cap ratios in HBase configs, based on usage caps and total heap size. In hbase-site.xml:</p>
+</li>
+<li><ul>
+<li><strong>hfile.block.cache.size</strong> → <em>block cache cap ÷ heap size</em></li>
+<li><strong><em>*</em>*hbase.regionserver.global.memstore.size** → *memstore cap ÷ heap size***</strong></li>
+</ul>
+</li>
+</ul>
+<h2 id="Step-4-Adjust-additional-recommended-JVM-flags-for-GC-performance"><a href="#Step-4-Adjust-additional-recommended-JVM-flags-for-GC-performance" class="headerlink" title="Step 4: Adjust additional recommended JVM flags for GC performance"></a>Step 4: Adjust additional recommended JVM flags for GC performance</h2><ul>
+<li><p>From <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Tuning3">Tuning #3</a><strong>:</strong></p>
+<ul>
+<li><strong><em>\</em>-XX:MaxTenuringThreshold=1**</strong></li>
+</ul>
+</li>
+<li><p>From </p>
+<p>Tuning #4</p>
+<p>:</p>
+<ul>
+<li><strong><em>\</em>-XX:G1HeapWastePercent=10**</strong></li>
+<li><strong><em>\</em>-XX:G1MixedGCCountTarget=16**</strong></li>
+</ul>
+</li>
+<li><p><strong>From <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Tuning6">Tuning #6</a>:</strong></p>
+</li>
+<li><ul>
+<li><strong><em>*</em>*-XX:G1HeapRegionSize=***#M***</strong></li>
+<li><strong>#</strong> must be a power of 2, in range [1..32].</li>
+<li>Ideally, <strong>#</strong> is such that: heap size ÷ <strong>#</strong> MB = 2048 regions.</li>
+<li>If your heap size doesn’t provide a clear choice for region size, err on the side of fewer, larger regions. Larger regions reduce GC pause time volatility.</li>
+</ul>
+</li>
+</ul>
+<h2 id="Step-5-Run-it"><a href="#Step-5-Run-it" class="headerlink" title="Step 5: Run it!"></a>Step 5: Run it!</h2><ul>
+<li><p>Restart your RegionServers with these settings and see how they look.</p>
+</li>
+<li><ul>
+<li><p>Remember that you can adjust Eden size as described above, to optimize either for shorter individual GCs or for less overall time in GC. If you do, make sure to maintain Eden + IHOP ≤ 90%.</p>
+</li>
+<li><p>If your HBase clients can have very bursty traffic, consider adding heap space outside of IHOP and Eden (so that IHOP + Eden adds up to 80%, for example).</p>
+</li>
+<li><ul>
+<li>Remember to update % and ratio configs along with the new heap size.</li>
+<li><strong>Details and further suggestions about this found in <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster#Tuning7">Tuning #7</a>.</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p><strong>Further reference:</strong></p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-fundamentals-lessons-from-taming-garbage-collection">G1GC Fundamentals (HubSpot blog)</a></li>
+<li><a target="_blank" rel="noopener" href="https://blogs.oracle.com/poonam/entry/understanding_g1_gc_logs">Understanding G1GC Logs (Oracle blog)</a></li>
+<li><strong><em>\</em><a target="_blank" rel="noopener" href="https://software.intel.com/en-us/blogs/2014/06/18/part-1-tuning-java-garbage-collection-for-hbase">Tuning HBase Garbage Collection (Intel blog)</a>**</strong></li>
+</ul>
+<p><strong><strong>*This blog post was co-authored by Staff Software Engineer <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/author/eric-abbott">Eric Abbott</a>.*</strong></strong> </p>
+<p>原文地址：<a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-tuning-your-hbase-cluster">Tuning G1GC For Your HBase Cluster</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/hbase/" rel="tag"># hbase</a>
+              <a href="/tags/gc/" rel="tag"># gc</a>
+              <a href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag"># 性能调优</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E5%9B%9B%EF%BC%9AG1GC%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" rel="prev" title="HBase调优之四：G1GC基础知识">
+      <i class="fa fa-chevron-left"></i> HBase调优之四：G1GC基础知识
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-G1GC-For-Your-HBase-Cluster"><span class="nav-number">1.</span> <span class="nav-text">Tuning G1GC For Your HBase Cluster</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Original-GC-Tuning-State"><span class="nav-number">2.</span> <span class="nav-text">Original GC Tuning State</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Starting-Point-Heap-Sizes-and-Overall-Time-Spent-in-GC"><span class="nav-number">3.</span> <span class="nav-text">Starting Point: Heap Sizes and Overall Time Spent in GC</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-1-Goal-Lower-Total-Time-in-GC-Action-Raise-IHOP"><span class="nav-number">4.</span> <span class="nav-text">Tuning #1 Goal: Lower Total Time in GC - Action: Raise IHOP</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Success"><span class="nav-number">5.</span> <span class="nav-text">Result: Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-2-Goal-Lower-Total-Time-in-GC-Action-Increase-Eden"><span class="nav-number">6.</span> <span class="nav-text">Tuning #2 Goal: Lower Total Time in GC - Action: Increase Eden</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Effects-on-Overall-GC-Time"><span class="nav-number">7.</span> <span class="nav-text">Effects on Overall GC Time</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Individual-STW-times"><span class="nav-number">8.</span> <span class="nav-text">Individual STW times</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#To-space-Exhaustion-Danger"><span class="nav-number">9.</span> <span class="nav-text">To-space Exhaustion Danger</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Failure"><span class="nav-number">10.</span> <span class="nav-text">Result: Failure</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-3-Goal-Reduce-Individual-STW-Durations-Action-SurvivorRatio-amp-MaxTenuringThreshold"><span class="nav-number">11.</span> <span class="nav-text">Tuning #3 Goal: Reduce Individual STW Durations - Action: SurvivorRatio &amp; MaxTenuringThreshold</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Theoretical-Success"><span class="nav-number">12.</span> <span class="nav-text">Result: Theoretical Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-4-Goal-Eliminate-Long-STW-Events-Action-G1MixedGCCountTarget-amp-G1HeapWastePercent"><span class="nav-number">13.</span> <span class="nav-text">Tuning #4 Goal: Eliminate Long STW Events - Action: G1MixedGCCountTarget &amp; G1HeapWastePercent</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Success-1"><span class="nav-number">14.</span> <span class="nav-text">Result: Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-5-Goal-Stop-Losing-Nodes-Heap-Size-and-HBase-Configs"><span class="nav-number">15.</span> <span class="nav-text">Tuning #5 Goal: Stop Losing Nodes: Heap Size and HBase Configs</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Success-2"><span class="nav-number">16.</span> <span class="nav-text">Result: Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-6-Goal-Eliminate-Long-STW-Events-Action-Increase-G1-Region-Size"><span class="nav-number">17.</span> <span class="nav-text">Tuning #6 Goal: Eliminate Long STW Events - Action: Increase G1 Region Size</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Success-3"><span class="nav-number">18.</span> <span class="nav-text">Result: Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tuning-7-Goal-Preventing-RegionServer-To-space-Exhaustion-Action-Extra-Heap-as-Buffer"><span class="nav-number">19.</span> <span class="nav-text">Tuning #7 Goal: Preventing RegionServer To-space Exhaustion - Action: Extra Heap as Buffer</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Result-Success-4"><span class="nav-number">20.</span> <span class="nav-text">Result: Success</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Notes"><span class="nav-number">21.</span> <span class="nav-text">Notes:</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Overall-Results-Goals-Achieved"><span class="nav-number">22.</span> <span class="nav-text">Overall Results: Goals Achieved!</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Summary-How-to-Tune-Your-HBase-Cluster"><span class="nav-number">23.</span> <span class="nav-text">Summary: How to Tune Your HBase Cluster</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Before-you-start-GC-amp-HBase-monitoring"><span class="nav-number">23.1.</span> <span class="nav-text">Before you start: GC &amp; HBase monitoring</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-0-Recommended-Defaults"><span class="nav-number">23.2.</span> <span class="nav-text">Step 0: Recommended Defaults</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-1-Determine-maximum-expected-HBase-usage"><span class="nav-number">23.3.</span> <span class="nav-text">Step 1: Determine maximum expected HBase usage</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-2-Set-Heap-size-IHOP-and-Eden-size"><span class="nav-number">23.4.</span> <span class="nav-text">Step 2: Set Heap size, IHOP, and Eden size</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-3-Adjust-HBase-configs-based-on-usage-caps"><span class="nav-number">23.5.</span> <span class="nav-text">Step 3: Adjust HBase configs based on usage caps</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-4-Adjust-additional-recommended-JVM-flags-for-GC-performance"><span class="nav-number">23.6.</span> <span class="nav-text">Step 4: Adjust additional recommended JVM flags for GC performance</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Step-5-Run-it"><span class="nav-number">23.7.</span> <span class="nav-text">Step 5: Run it!</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">李忠友</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">28</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">7</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">李忠友</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

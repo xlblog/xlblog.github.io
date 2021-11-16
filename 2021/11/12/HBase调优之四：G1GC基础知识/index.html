@@ -20,28 +20,44 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":15,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="乡间小鹿">
-<meta property="og:url" content="http://example.com/index.html">
+  <meta name="description" content="HubSpot engineering is a Java shop invested heavily in microservices and continuous deployment. Java is not only used to run our thousands of deployables, but also our queues (Kafka) and Big Data solu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HBase调优之四：G1GC基础知识">
+<meta property="og:url" content="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E5%9B%9B%EF%BC%9AG1GC%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/index.html">
 <meta property="og:site_name" content="乡间小鹿">
+<meta property="og:description" content="HubSpot engineering is a Java shop invested heavily in microservices and continuous deployment. Java is not only used to run our thousands of deployables, but also our queues (Kafka) and Big Data solu">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC1.png?width=672&height=404&name=G1GC1.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC2.png?width=672&height=428&name=G1GC2.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC3.png?width=588&height=472&name=G1GC3.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1Gc4.png?width=467&name=G1Gc4.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC5.png?width=671&height=371&name=G1GC5.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC6.png?width=550&height=1557&name=G1GC6.png">
+<meta property="og:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC7.png?width=671&height=226&name=G1GC7.png">
+<meta property="article:published_time" content="2021-11-12T08:19:53.000Z">
+<meta property="article:modified_time" content="2021-11-12T09:00:40.955Z">
 <meta property="article:author" content="李忠友">
+<meta property="article:tag" content="bigdata">
+<meta property="article:tag" content="hbase">
+<meta property="article:tag" content="gc">
+<meta property="article:tag" content="性能调优">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://product.hubspot.com/hs-fs/hubfs/G1GC1.png?width=672&height=404&name=G1GC1.png">
 
-<link rel="canonical" href="http://example.com/">
+<link rel="canonical" href="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E5%9B%9B%EF%BC%9AG1GC%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-CN'
   };
 </script>
 
-  <title>乡间小鹿</title>
+  <title>HBase调优之四：G1GC基础知识 | 乡间小鹿</title>
   
 
 
@@ -155,90 +171,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/" class="post-title-link" itemprop="url">HBase调优之五：HBase对G1GC进行调优</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-11-12 16:20:27" itemprop="dateCreated datePublished" datetime="2021-11-12T16:20:27+08:00">2021-11-12</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-11-16 14:23:04" itemprop="dateModified" datetime="2021-11-16T14:23:04+08:00">2021-11-16</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
 
     
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Tuning-G1GC-For-Your-HBase-Cluster"><a href="#Tuning-G1GC-For-Your-HBase-Cluster" class="headerlink" title="Tuning G1GC For Your HBase Cluster"></a>Tuning G1GC For Your HBase Cluster</h1>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
@@ -254,10 +190,9 @@
       <meta itemprop="name" content="乡间小鹿">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E5%9B%9B%EF%BC%9AG1GC%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" class="post-title-link" itemprop="url">HBase调优之四：G1GC基础知识</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          HBase调优之四：G1GC基础知识
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -290,7 +225,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>HubSpot engineering is a <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/modern-java-at-hubspot">Java shop</a> invested heavily in microservices and continuous deployment. Java is not only used to run our thousands of deployables, but also our queues (<a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/kafka-at-hubspot-part-1-critical-consumer-metrics">Kafka</a>) and Big Data solution (HBase). Keeping all these JVMs performant while providing a good user experience has forced us to dig deep into Garbage Collection (GC), particularly the Garbage First Garbage Collector (G1GC).</p>
+        <p>HubSpot engineering is a <a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/modern-java-at-hubspot">Java shop</a> invested heavily in microservices and continuous deployment. Java is not only used to run our thousands of deployables, but also our queues (<a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/kafka-at-hubspot-part-1-critical-consumer-metrics">Kafka</a>) and Big Data solution (HBase). Keeping all these JVMs performant while providing a good user experience has forced us to dig deep into Garbage Collection (GC), particularly the Garbage First Garbage Collector (G1GC).</p>
 <h2 id="Motivation"><a href="#Motivation" class="headerlink" title="Motivation"></a>Motivation</h2><p>Interestingly enough, the initial motivation for monitoring GC performance was not the elimination of performance issues. At the time, the goal was to shrink the overall RAM footprint of our applications to reduce the number of servers and save $$. The responsible way to shrink heap involves monitoring GC performance to know how low to go. Representative metrics were identified and collected out of the GC logs, and we started experiments to reduce the heaps of larger applications.</p>
 <p>GC metrics were not even two weeks old before the first performance issue was found. Out of a cluster of application instances, one would randomly start to have response times 2x the norm or higher. With a bit of poking around it was determined the new metric for overall time spent in GC correlated with the slow response times. With the y-axis in millis, the graph below shows a single instance start spending 25s of wall clock time in GC for each reporting interval. At 60s apart, 25s/60s or 40% of the reporting interval the JVM was in GC and not doing any useful work.</p>
 <p><img src="https://product.hubspot.com/hs-fs/hubfs/G1GC1.png?width=672&height=404&name=G1GC1.png" alt="G1GC1.png"></p>
@@ -626,667 +561,40 @@
 <p><strong>G1GC is complex and for many use cases will require a bit of tuning to get the desired results. In our experience poorly tuned G1GC can provide a much worse user experience than ParallelGC. All in all, G1GC has provided a ton of value for HubSpot, but only after we shifted our mentality from set-and-forget to active monitoring and tuning.</strong></p>
 <p>原文地址：<a target="_blank" rel="noopener" href="https://product.hubspot.com/blog/g1gc-fundamentals-lessons-from-taming-garbage-collection">G1GC Fundamentals: Lessons from Taming Garbage Collection</a></p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
+          <div class="post-tags">
+              <a href="/tags/bigdata/" rel="tag"># bigdata</a>
+              <a href="/tags/hbase/" rel="tag"># hbase</a>
+              <a href="/tags/gc/" rel="tag"># gc</a>
+              <a href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" rel="tag"># 性能调优</a>
+          </div>
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/11/08/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%89%EF%BC%9A%E6%95%B0%E6%8D%AE%E7%83%AD%E7%82%B9%E8%B0%83%E4%BC%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/11/08/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%89%EF%BC%9A%E6%95%B0%E6%8D%AE%E7%83%AD%E7%82%B9%E8%B0%83%E4%BC%98/" class="post-title-link" itemprop="url">HBase调优之三：数据热点调优</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-11-08 17:35:26" itemprop="dateCreated datePublished" datetime="2021-11-08T17:35:26+08:00">2021-11-08</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-11-10 15:19:36" itemprop="dateModified" datetime="2021-11-10T15:19:36+08:00">2021-11-10</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="HBase热点数据调优"><a href="#HBase热点数据调优" class="headerlink" title="HBase热点数据调优"></a>HBase热点数据调优</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/11/08/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%89%EF%BC%9A%E6%95%B0%E6%8D%AE%E7%83%AD%E7%82%B9%E8%B0%83%E4%BC%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
-    </div>
 
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%8C%EF%BC%9A%E4%BC%98%E5%8C%96%E5%8E%8B%E7%BC%A9%E9%98%9F%E5%88%97%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%8C%EF%BC%9A%E4%BC%98%E5%8C%96%E5%8E%8B%E7%BC%A9%E9%98%9F%E5%88%97%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">HBase调优之二：优化压缩队列过高问题</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-10-20 15:37:24" itemprop="dateCreated datePublished" datetime="2021-10-20T15:37:24+08:00">2021-10-20</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-10-27 18:12:26" itemprop="dateModified" datetime="2021-10-27T18:12:26+08:00">2021-10-27</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="HBase-压缩队列告警优化"><a href="#HBase-压缩队列告警优化" class="headerlink" title="HBase 压缩队列告警优化"></a>HBase 压缩队列告警优化</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%8C%EF%BC%9A%E4%BC%98%E5%8C%96%E5%8E%8B%E7%BC%A9%E9%98%9F%E5%88%97%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/11/08/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%89%EF%BC%9A%E6%95%B0%E6%8D%AE%E7%83%AD%E7%82%B9%E8%B0%83%E4%BC%98/" rel="prev" title="HBase调优之三：数据热点调优">
+      <i class="fa fa-chevron-left"></i> HBase调优之三：数据热点调优
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/11/12/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%BA%94%EF%BC%9AHBase%E5%AF%B9G1GC%E8%BF%9B%E8%A1%8C%E8%B0%83%E4%BC%98/" rel="next" title="HBase调优之五：HBase对G1GC进行调优">
+      HBase调优之五：HBase对G1GC进行调优 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
   
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/" class="post-title-link" itemprop="url">HBase调优之一：基础原理</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-10-20 15:32:04 / 修改时间：16:04:37" itemprop="dateCreated datePublished" datetime="2021-10-20T15:32:04+08:00">2021-10-20</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/HBase/" itemprop="url" rel="index"><span itemprop="name">HBase</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="HBase概述"><a href="#HBase概述" class="headerlink" title="HBase概述"></a>HBase概述</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/10/20/HBase%E8%B0%83%E4%BC%98%E4%B9%8B%E4%B8%80%EF%BC%9A%E5%9F%BA%E7%A1%80%E5%8E%9F%E7%90%86/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/29/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%89-SOLID%E5%8E%9F%E5%88%99/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/09/29/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%89-SOLID%E5%8E%9F%E5%88%99/" class="post-title-link" itemprop="url">架构之三:SOLID原则</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-09-29 16:52:36" itemprop="dateCreated datePublished" datetime="2021-09-29T16:52:36+08:00">2021-09-29</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-30 18:08:35" itemprop="dateModified" datetime="2021-09-30T18:08:35+08:00">2021-09-30</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%9E%B6%E6%9E%84%E4%B9%8B%E9%81%93/" itemprop="url" rel="index"><span itemprop="name">架构之道</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="SOLID原则"><a href="#SOLID原则" class="headerlink" title="SOLID原则"></a>SOLID原则</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/09/29/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%89-SOLID%E5%8E%9F%E5%88%99/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/" class="post-title-link" itemprop="url">架构之二:编程范式</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-09-17 16:46:09" itemprop="dateCreated datePublished" datetime="2021-09-17T16:46:09+08:00">2021-09-17</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-26 16:47:53" itemprop="dateModified" datetime="2021-09-26T16:47:53+08:00">2021-09-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%9E%B6%E6%9E%84%E4%B9%8B%E9%81%93/" itemprop="url" rel="index"><span itemprop="name">架构之道</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="三种编程范式"><a href="#三种编程范式" class="headerlink" title="三种编程范式"></a>三种编程范式</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/09/17/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%BA%8C-%E7%BC%96%E7%A8%8B%E8%8C%83%E5%BC%8F/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/" class="post-title-link" itemprop="url">架构之一:架构的目的是什么</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-09-14 14:42:26" itemprop="dateCreated datePublished" datetime="2021-09-14T14:42:26+08:00">2021-09-14</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-26 16:47:28" itemprop="dateModified" datetime="2021-09-26T16:47:28+08:00">2021-09-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%9E%B6%E6%9E%84%E4%B9%8B%E9%81%93/" itemprop="url" rel="index"><span itemprop="name">架构之道</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>最近对公司内部项目做了一些重构，对项目架构这一块也有了一定的理解，结合在企业内部的实际项目，来记录一下个人在架构这块学到的一些经验和知识。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/09/14/%E6%9E%B6%E6%9E%84%E4%B9%8B%E4%B8%80-%E6%9E%B6%E6%9E%84%E7%9A%84%E7%9B%AE%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/" class="post-title-link" itemprop="url">微服务业务监控和行为分析怎么做？试试日志埋点</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-06-28 18:03:02" itemprop="dateCreated datePublished" datetime="2021-06-28T18:03:02+08:00">2021-06-28</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-17 16:31:16" itemprop="dateModified" datetime="2021-09-17T16:31:16+08:00">2021-09-17</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%9D%82%E8%B0%88/" itemprop="url" rel="index"><span itemprop="name">杂谈</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="一、说明"><a href="#一、说明" class="headerlink" title="一、说明"></a>一、说明</h2>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/06/28/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E4%B8%9A%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E6%80%8E%E4%B9%88%E5%81%9A%EF%BC%9F%E8%AF%95%E8%AF%95%E6%97%A5%E5%BF%97%E5%9F%8B%E7%82%B9/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="李忠友">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="乡间小鹿">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/" class="post-title-link" itemprop="url">RocketMQ源码:4.消息存储</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-06-01 15:59:03" itemprop="dateCreated datePublished" datetime="2021-06-01T15:59:03+08:00">2021-06-01</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-09-17 16:29:21" itemprop="dateModified" datetime="2021-09-17T16:29:21+08:00">2021-09-17</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/RocketMQ/" itemprop="url" rel="index"><span itemprop="name">RocketMQ</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="CommitLog-结构"><a href="#CommitLog-结构" class="headerlink" title="CommitLog 结构"></a>CommitLog 结构</h1>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/06/01/RocketMQ%E6%BA%90%E7%A0%81-4-%E6%B6%88%E6%81%AF%E5%AD%98%E5%82%A8/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
-  
-  <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
-  </nav>
 
 
 
@@ -1338,6 +646,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Motivation"><span class="nav-number">1.</span> <span class="nav-text">Motivation</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Poor-User-Experience"><span class="nav-number">1.1.</span> <span class="nav-text">Poor User Experience</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Actions"><span class="nav-number">1.2.</span> <span class="nav-text">Actions</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Topics-and-Overview"><span class="nav-number">2.</span> <span class="nav-text">Topics and Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Concepts-and-Architecture"><span class="nav-number">3.</span> <span class="nav-text">Concepts and Architecture</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#The-GC-Epoch"><span class="nav-number">3.1.</span> <span class="nav-text">The GC Epoch</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Generational-Collector"><span class="nav-number">3.2.</span> <span class="nav-text">Generational Collector</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Regions"><span class="nav-number">4.</span> <span class="nav-text">Regions</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Object-allocation-gt-Region"><span class="nav-number">4.1.</span> <span class="nav-text">Object allocation &gt; Region</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Evacuation-style-collections"><span class="nav-number">4.2.</span> <span class="nav-text">Evacuation style collections</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-types-of-heap-space"><span class="nav-number">4.3.</span> <span class="nav-text">4 types of heap space</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Starting-to-Tie-it-All-Together"><span class="nav-number">5.</span> <span class="nav-text">Starting to Tie it All Together</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Epoch-lifecycle-of-a-Minor-GC-event"><span class="nav-number">5.1.</span> <span class="nav-text">Epoch lifecycle of a Minor GC event</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#10-000ft-View"><span class="nav-number">5.1.1.</span> <span class="nav-text">10,000ft View</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Details"><span class="nav-number">5.1.2.</span> <span class="nav-text">Details</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#To-space-overflow-and-To-space-exhaustion"><span class="nav-number">5.1.3.</span> <span class="nav-text">To-space overflow and To-space exhaustion</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Survivor-space"><span class="nav-number">5.1.4.</span> <span class="nav-text">Survivor space</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Length-of-STW"><span class="nav-number">5.1.5.</span> <span class="nav-text">Length of STW</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Effects-of-Eden-size"><span class="nav-number">5.1.6.</span> <span class="nav-text">Effects of Eden size</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Takeaways-for-REST-API-servers"><span class="nav-number">5.1.7.</span> <span class="nav-text">Takeaways (for REST API servers)</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Concepts-and-Architecture-Continued%E2%80%A6"><span class="nav-number">6.</span> <span class="nav-text">Concepts and Architecture Continued…</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Types-and-Triggers-of-GC-Events"><span class="nav-number">6.1.</span> <span class="nav-text">Types and Triggers of GC Events</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Understanding-Mixed-Events"><span class="nav-number">7.</span> <span class="nav-text">Understanding Mixed Events</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#10-000ft-View-1"><span class="nav-number">7.0.1.</span> <span class="nav-text">10,000ft View</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Detailed-Walkthrough"><span class="nav-number">7.0.2.</span> <span class="nav-text">Detailed Walkthrough</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Multiple-Mixed-Events"><span class="nav-number">7.0.2.1.</span> <span class="nav-text">Multiple Mixed Events</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Inherent-To-space-Exhaustion-Vulnerability"><span class="nav-number">7.1.</span> <span class="nav-text">Inherent To-space Exhaustion Vulnerability</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#IHOP-and-the-Working-Set"><span class="nav-number">7.2.</span> <span class="nav-text">IHOP and the Working Set</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Humongous-Objects"><span class="nav-number">8.</span> <span class="nav-text">Humongous Objects</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Humongous-objects-draw-from-the-Free-space-pool"><span class="nav-number">8.1.</span> <span class="nav-text">Humongous objects draw from the Free space pool</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Humongous-objects-are-freed-at-the-end-of-an-MPCMC"><span class="nav-number">8.2.</span> <span class="nav-text">Humongous objects are freed at the end of an MPCMC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Humongous-objects-kick-off-MPCMC-early"><span class="nav-number">8.3.</span> <span class="nav-text">Humongous objects kick off MPCMC early</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Defending-against-Humongous-objects"><span class="nav-number">8.4.</span> <span class="nav-text">Defending against Humongous objects</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#More-Concepts-and-Final-Thoughts"><span class="nav-number">9.</span> <span class="nav-text">More Concepts and Final Thoughts</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Controlling-Heap-Sizes"><span class="nav-number">9.1.</span> <span class="nav-text">Controlling Heap Sizes</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Complication-Not-meeting-MaxGCPauseMillis-target"><span class="nav-number">9.1.1.</span> <span class="nav-text">Complication - Not meeting MaxGCPauseMillis target</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Complication-G1NewSizePercent-overrides-G1ReservePercent"><span class="nav-number">9.1.2.</span> <span class="nav-text">Complication - G1NewSizePercent overrides G1ReservePercent</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Complication-Humongous-objects-and-or-R-O-U-S"><span class="nav-number">9.1.3.</span> <span class="nav-text">Complication - Humongous objects and&#x2F;or R.O.U.S.</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Comments-on-XX-MaxGCPauseMillis"><span class="nav-number">9.2.</span> <span class="nav-text">Comments on -XX:MaxGCPauseMillis</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
